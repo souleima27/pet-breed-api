@@ -1,0 +1,418 @@
+
+
+(function($) {
+
+  // An alternative to Drupal handling of serializing all ID's on the page.
+  // All ID's transmitted work against POST limit, and usually doesn't get used.
+  Drupal.ajax.prototype.beforeSerialize = function (element, options) {
+    if (this.form) {
+      var settings = this.settings || Drupal.settings;
+      Drupal.detachBehaviors(this.form, settings, 'serialize');
+    }
+
+    // If explicitly asked for, ID's can be excluded from being sent.
+    if (Drupal.ajax.idsSelector && Drupal.ajax.idsSelector.length) {
+      options.data['ajax_html_ids[]'] = [];
+      $(Drupal.ajax.idsSelector).each(function () {
+        options.data['ajax_html_ids[]'].push(this.id);
+      });
+    }
+ 
+    options.data['ajax_page_state[theme]'] = Drupal.settings.ajaxPageState.theme;
+    options.data['ajax_page_state[theme_token]'] = Drupal.settings.ajaxPageState.theme_token;
+    for (var key in Drupal.settings.ajaxPageState.css) {
+      options.data['ajax_page_state[css][' + key + ']'] = 1;
+    }
+    for (var key in Drupal.settings.ajaxPageState.js) {
+      options.data['ajax_page_state[js][' + key + ']'] = 1;
+    }
+  };
+
+
+  IWapi.ajax = IWapi.ajax || {};
+  
+  /**
+   * Directly callable AJAX trigger, which works when you are
+   * triggering an AJAX command without need of an event, or
+   * as shared between events.
+   */
+  IWapi.ajax.Action = function(base, element, element_settings) {
+    var defaults = {
+      url: 'system/ajax',
+      selector: '#' + base,
+      effect: 'none',
+      speed: 'none',
+      method: 'replaceWith',
+      progress: {
+        type: 'throbber',
+        message: Drupal.t('Please wait...')
+      },
+      submit: { 'js': true }
+    };
+    $.extend(this, defaults, element_settings);
+
+    // Save original user settings.
+    this.element_settings = element_settings;
+
+    this.url = element_settings.url.replace(/\/nojs(\/|$|\?|&|#)/g, '/ajax$1');
+    this.wrapper = '#' + element_settings.wrapper;
+    
+    // This is where we primarily diverge from the Drupal handling.
+    // When there is no element, much of Drupal's handling is unnecessary.
+    if (element) {
+      this.element = element; // attach progress extra element processing.
+      
+      // Check if this is a form element.
+      if (this.element.form) this.form = $(this.element.form);
+	  
+      // Use the Drupal AJAX handlers instead of our own ones.
+      this.beforeSubmit = Drupal.ajax.prototype.beforeSubmit;
+      this.beforeSend   = Drupal.ajax.prototype.beforeSend;
+      this.success      = Drupal.ajax.prototype.success;
+      this.complete     = Drupal.ajax.prototype.complete;
+    }
+    else {
+      delete this.progress;
+    }
+
+    // These items are always relevant and need to be directly inherited.
+    this.beforeSerialize = Drupal.ajax.prototype.beforeSerialize;
+    this.commands  = Drupal.ajax.prototype.commands;
+    this.getEffect = Drupal.ajax.prototype.getEffect;
+
+    // Set the options for the ajaxSubmit function.
+    // The 'this' variable will not persist inside of the options object.
+    var ajax = this;
+    ajax.options = {
+      url: ajax.url,
+      dataType: 'json',
+      data: ajax.submit,
+      beforeSerialize: function (element_settings, options) {
+        return ajax.beforeSerialize(element_settings, options);
+      },
+      beforeSubmit: function (form_values, element_settings, options) {
+        ajax.ajaxing = true;
+        return ajax.beforeSubmit(form_values, element_settings, options);
+      },
+      beforeSend: function (xmlhttprequest, options) {
+        ajax.ajaxing = true;
+        return ajax.beforeSend(xmlhttprequest, options);
+      },
+      success: function (response, status) {
+        // Sanity check for browser support (object expected).
+        // When using iFrame uploads, responses must be returned as a string.
+        if (typeof response == 'string') {
+          response = $.parseJSON(response);
+        }
+        return ajax.success(response, status);
+      },
+      complete: function (response, status) {
+        ajax.ajaxing = false;
+        if (status == 'error' || status == 'parsererror') {
+          return ajax.error(response, ajax.url);
+        }
+      }
+    };
+
+    // Allow a simple + cacheable GET requests.
+    if (element_settings.useGET) {
+      this.options.type = 'GET';
+      this.options.data = false;
+      this.beforeSerialize = IWapi.ajax.Action.beforeSerialize;
+    }
+    else {
+      this.options.type = 'POST';
+    }
+
+    // If necessary, prevent the browser default action of an additional event.
+    // For example, prevent the browser default action of a click, even if the
+    // AJAX behavior binds to mousedown.
+    if (element_settings.prevent) {
+      $(ajax.element).bind(element_settings.prevent, false);
+    }
+  };
+
+  
+  // In order to allow GET method AJAX requests, we need to prevent the sending of
+  // additional data added by the standard beforeSerialize method.
+  IWapi.ajax.Action.beforeSerialize = function (element, options) {
+    // Allow detaching behaviors to update field values before collecting them.
+    // This is only needed when field values are added to the POST data, so only
+    // when there is a form such that this.form.ajaxSubmit() is used instead of
+    // $.ajax(). When there is no form and $.ajax() is used, beforeSerialize()
+    // isn't called, but don't rely on that: explicitly check this.form.
+    if (this.form) {
+      var settings = this.settings || Drupal.settings;
+      Drupal.detachBehaviors(this.form, settings, 'serialize');
+      
+      // Ensure AJAX knows the current theme and asset status.
+      options.data['ajax_page_state[theme]'] = Drupal.settings.ajaxPageState.theme;
+      options.data['ajax_page_state[theme_token]'] = Drupal.settings.ajaxPageState.theme_token;
+      for (var key in Drupal.settings.ajaxPageState.css) {
+        options.data['ajax_page_state[css][' + key + ']'] = 1;
+      }
+      for (var key in Drupal.settings.ajaxPageState.js) {
+        options.data['ajax_page_state[js][' + key + ']'] = 1;
+      }
+    }
+  }
+
+  /**
+   * Prepare the Ajax request before it is sent.
+   */
+  IWapi.ajax.Action.prototype.beforeSend = function (xmlhttprequest, options) {
+    // Nothing is required if no element is provided.
+  };
+
+  /**
+   * Handler for the form redirection completion.
+   */
+  IWapi.ajax.Action.prototype.success = function (response, status) {
+    Drupal.freezeHeight();
+
+    for (var i in response) {
+      if (response.hasOwnProperty(i) && response[i]['command'] && this.commands[response[i]['command']]) {
+        this.commands[response[i]['command']](this, response[i], status);
+      }
+    }
+
+    Drupal.unfreezeHeight();
+
+    // Remove any response-specific settings so they don't get used on the next call by mistake.
+    this.settings = null;
+  };
+
+  /**
+   * Default Drupal error handling requires a progress element
+   * and will report early termination errors. Neither should
+   * be required or used for our needs.
+   */
+  IWapi.ajax.Action.prototype.error = function (response, uri) {
+    // Unlike the standard Drupal AJAX error, we do not 
+    // want to report early termination of the request.
+    if (response.status) {
+      alert(Drupal.ajaxError(response, uri));
+    }
+    
+    // If no element associated to this action, then no progress elements were used.
+    if (this.element) {
+      // Remove the progress element.
+      if (this.progress.element) {
+        $(this.progress.element).remove();
+      }
+      if (this.progress.object) {
+        this.progress.object.stopMonitoring();
+      }
+
+      $(this.wrapper).show();
+      $(this.element).removeClass('progress-disabled').removeAttr('disabled');
+    }
+    
+    // Reattach behaviors, if they were detached in beforeSerialize().
+    if (this.form) {
+      var settings = response.settings || this.settings || Drupal.settings;
+      Drupal.attachBehaviors(this.form, settings);
+    }
+  };
+
+  /**
+   * Generate the AJAX request to the server, optionally
+   * sending GET query parameters.
+   */
+  IWapi.ajax.Action.prototype.execute = function(params) {
+    // Create a synonym for this to reduce code confusion.
+    var ajax = this;
+    var element = this.element || {};
+
+    // Do not perform another ajax command if one is already in progress.
+    if (ajax.ajaxing) return false;
+
+    try {
+      // If using a Drupal uri (relative URL without a starting '/').
+      if (!(/^([a-z]{2,5}:\/\/|\/)/i.test(ajax.url))) {
+        ajax.options.url = IWapi.utils.buildURL(ajax.url, params);
+      }
+      
+      ajax.beforeSerialize(ajax.element, ajax.options);
+      $.ajax(ajax.options);
+    }
+    catch (e) {
+      // Unset the ajax.ajaxing flag here because it won't be unset during
+      // the complete response.
+      ajax.ajaxing = false;
+      alert("An error occurred while attempting to process " + ajax.options.url + ": " + e.message);
+    }
+
+    // For radio/checkbox, allow the default event. On IE, this means letting it actually check the box.
+    return (typeof element.type != 'undefined' && (element.type == 'checkbox' || element.type == 'radio')) ? true : false;
+  };
+
+
+  IWapi.ajax.Spinner = new Spinner();
+  IWapi.ajax.activateFormAjax = function(form, dialog) {
+    form = $(form);
+
+    var form_id = form.attr('id');
+    var ajax = new Drupal.ajax(form_id, form, { url: form.attr('action'), event: 'submit', progress: { type: '' }});
+    ajax.form = form;
+    ajax.dialog = dialog || null;
+    ajax.error = IWapi.ajax.Action.prototype.error;
+    ajax.beforeSerialize = IWapi.ajax.Action.beforeSerialize; // forms activiated this way, get fully replaced. 
+
+    Drupal.ajax[form_id] = ajax;
+
+    // Callback which submits the form using AJAX.
+    var callAjax = function(event) {
+      ajax.element = this;
+      this.form.clk = this;
+
+      // Trigger the wait throbber on either the dialog or form.
+      if (dialog) { dialog.loadStart(); }
+      else IWapi.ajax.Spinner.spin(ajax.form.parent()[0]);
+
+      // An empty event means we were triggered via .click() and
+      //  in jquery 1.4 this won't trigger a submit.
+      if (event.bubbles === undefined) {
+        $(this.form).trigger('submit');
+
+        event.preventDefault();
+        return false;
+      }
+    };
+    
+    // Callback to cancel form changes(close dialog).
+    var callCancel = function(event) {
+      ajax.commands.dismiss_dialog(ajax, { }, "success");
+      event.preventDefault();
+      return false;
+    };
+
+
+    // Any embedded forms are expected to respond using AJAX, in order to
+    // respond to changes without effecting the parent forms. Attach form
+    // submit elements with the appropriate AJAX callback.
+    $('input[type="submit"], button', form).each(function() {
+      var key = $(this).attr('id');
+
+      // Find all submit inputs that don't already have AJAX.
+      if (!Drupal.ajax[key]) $(this).click($(this).hasClass('cancel-action') ? callCancel : callAjax);    
+    });
+
+    // Attach cancel action to links marked for canceling forms in dialogs.
+    $('a.cancel-action', form).click(callCancel);
+
+    $('a', form).each(function() {
+      if (!/^#/.test($(this).attr('href')) && !/ajax|modal|processed/i.test($(this).attr('class')))
+        $(this).attr('target', '_top');
+    });
+  };
+
+
+  // Add IWapi AJAX callback handlers to Drupal AJAX.
+  $.extend(Drupal.ajax.prototype.commands, {
+
+  page_reload: function(ajax, data, status) { 
+    if (IWapi.frame.canAccessTop()) window.top.location.reload();
+    else {
+      var matches = /(?:^|#|&|\?)origin=([^&]+)/.exec(location.search);
+      var url = location.protocol.replace(/:$/, "") + "://" + location.host + Drupal.settings.basePath
+        + (matches && matches[1].length ? decodeURIComponent(matches[1]) : '');
+
+      ajax.commands.url_redirect(ajax, { url: url }, status); // redirecting to parent is the same as reload.
+    }
+  },
+
+  url_redirect: function(ajax, data, status) {
+    if (data.delay > 0) {
+      setTimeout(function() { window.top.location.href = data.url; }, data.delay);
+    }
+    else window.top.location.href = data.url;
+  },
+
+  delete_tablerow: function(ajax, data, status) {
+    var element = ajax.element;
+    if (ajax.original) {
+      ajax.commands.dismiss_modal(ajax, { }, status);
+      element = ajax.original;
+    }
+
+    // Reference table, and then remove row.
+    var table = $(element).closest('table');
+    $(element).closest('tr').remove();
+    IWapi.utils.restripe(table);
+  },
+
+  update_tablerow: function(ajax, data, status) {
+    var repl  = $(data.data);
+    var row   = $(data.selector);
+    var table = row.closest('table');
+
+    if (row.hasClass('draggable')) {
+      var dragPat = /(\s|^)tabledrag-/;
+
+      // Until a better solution can be thought of, only replace cells
+      // that don't have any hint of containing table drag items.
+      $('td', repl).each(function(index) {
+        var item = $('td', row).get(index);
+        if (item && $(item).find("[class|='tabledrag']").length == 0 && !dragPat.test($(item).attr('class'))) {
+          $(item).html($(this).html());
+        }
+      });
+    }
+    else row.replaceWith(repl);
+
+    IWapi.utils.restripe(table);
+  },
+
+  dialog_content: function(ajax, data, status) {
+    var content, dlg = ajax.dialog || window.sharedModal;
+
+    if (IWapi.frame.isEmbedFrame()) {
+      var content = $('#ifr-embed-wrapper');
+
+      Drupal.detachBehaviors(content);
+      Drupal.attachBehaviors(content.html(data.content));
+
+      // Resize iFrame height if able to access dialog.
+      if (dlg) {
+        $('iframe', dlg.wrapper).height(content.outerHeight(true));
+        dlg.loadComplete();
+      }
+    }
+    else {
+      dlg.loadComplete();
+      dlg.showHTML(data.content, data.settings);
+      content = dlg.wrapper;
+    }
+
+    // Active the new form with AJAX handling.
+    IWapi.ajax.activateFormAjax($('form', content), dlg);
+  },
+
+  dismiss_dialog: function(ajax, data, status) {
+    var dlg = ajax.dialog || window.sharedModal;
+    dlg ? dlg.close() : ajax.commands.page_reload(ajax, {}, status);
+  }
+
+  });
+
+
+  // Attach the AJAX callback as commands for the Drupal command processor.
+  $(function() {
+    if (Drupal.settings.ajaxPreventIds === true) Drupal.ajax.idsSelector = null;
+    else {
+      var selector = '[id]';
+
+      if ($.isArray(Drupal.settings.ajaxPreventIds)) {
+        selector += ':not(';
+        for (var i in Drupal.settings.ajaxPreventIds) {
+          var sel = Drupal.settings.ajaxPreventIds[i];
+          selector +=  sel + "," + sel + ' *,'; 
+        }
+
+        Drupal.ajax.idsSelector = selector.substring(0, selector.length - 1) + ')';
+      }
+    }
+  });
+
+}(jQuery));

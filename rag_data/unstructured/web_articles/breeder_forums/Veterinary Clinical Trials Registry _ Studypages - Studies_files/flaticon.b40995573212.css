@@ -1,0 +1,127 @@
+	/*
+  	Flaticon icon font: Flaticon
+  	Creation date: 24/03/2020 10:23
+  	*/
+
+@font-face {
+  font-family: "Flaticon";
+  src: url("./Flaticon.e58721ff827b.eot");
+  src: url("./Flaticon.e58721ff827b.eot?#iefix") format("embedded-opentype"),
+       url("./Flaticon.2e85ca1b8af1.woff2") format("woff2"),
+       url("./Flaticon.f258996062ed.woff") format("woff"),
+       url("./Flaticon.5c77fd236416.ttf") format("truetype"),
+       url("./Flaticon.8792aa0131ee.svg#Flaticon") format("svg");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+  @font-face {
+    font-family: "Flaticon";
+    src: url("./Flaticon.8792aa0131ee.svg#Flaticon") format("svg");
+  }
+}
+
+[class^="flaticon-"]:before, [class*=" flaticon-"]:before,
+[class^="flaticon-"]:after, [class*=" flaticon-"]:after {   
+  font-family: Flaticon;
+        font-size: 20px;
+font-style: normal;
+margin-left: 20px;
+}
+
+.flaticon-location:before { content: "\f100"; }
+.flaticon-power:before { content: "\f101"; }
+.flaticon-technology-1:before { content: "\f102"; }
+.flaticon-people-6:before { content: "\f103"; }
+.flaticon-scale:before { content: "\f104"; }
+.flaticon-price-tag:before { content: "\f105"; }
+.flaticon-ribbon:before { content: "\f106"; }
+.flaticon-shapes-1:before { content: "\f107"; }
+.flaticon-shapes:before { content: "\f108"; }
+.flaticon-gestures:before { content: "\f109"; }
+.flaticon-people-2:before { content: "\f10a"; }
+.flaticon-people-5:before { content: "\f10b"; }
+.flaticon-home:before { content: "\f10c"; }
+.flaticon-clipboard:before { content: "\f10d"; }
+.flaticon-game:before { content: "\f10e"; }
+.flaticon-medical:before { content: "\f10f"; }
+.flaticon-medical-10:before { content: "\f110"; }
+.flaticon-people-3:before { content: "\f111"; }
+.flaticon-medical-8:before { content: "\f112"; }
+.flaticon-medical-1:before { content: "\f113"; }
+.flaticon-medical-5:before { content: "\f114"; }
+.flaticon-medical-7:before { content: "\f115"; }
+.flaticon-medical-11:before { content: "\f116"; }
+.flaticon-medical-3:before { content: "\f117"; }
+.flaticon-smile:before { content: "\f118"; }
+.flaticon-medical-4:before { content: "\f119"; }
+.flaticon-medical-6:before { content: "\f11a"; }
+.flaticon-sign:before { content: "\f11b"; }
+.flaticon-science:before { content: "\f11c"; }
+.flaticon-healthy:before { content: "\f11d"; }
+.flaticon-interface:before { content: "\f11e"; }
+.flaticon-social:before { content: "\f11f"; }
+.flaticon-medical-2:before { content: "\f120"; }
+.flaticon-kneecap:before { content: "\f121"; }
+.flaticon-multiple-users-silhouette:before { content: "\f122"; }
+.flaticon-symbols:before { content: "\f123"; }
+.flaticon-people-1:before { content: "\f124"; }
+.flaticon-tool:before { content: "\f125"; }
+.flaticon-clipboard-verification-symbol:before { content: "\f126"; }
+.flaticon-three:before { content: "\f127"; }
+.flaticon-add-user-button:before { content: "\f128"; }
+.flaticon-close:before { content: "\f129"; }
+.flaticon-chat-bubbles-with-ellipsis:before { content: "\f12a"; }
+.flaticon-stomach-ache:before { content: "\f12b"; }
+.flaticon-food:before { content: "\f12c"; }
+.flaticon-speech-bubble-with-text-lines:before { content: "\f12d"; }
+.flaticon-note:before { content: "\f12e"; }
+.flaticon-cigarette-with-smoke:before { content: "\f12f"; }
+.flaticon-craigslist:before { content: "\f130"; }
+.flaticon-pet-disease:before { content: "\f131"; }
+.flaticon-technology:before { content: "\f132"; }
+.flaticon-hands:before { content: "\f133"; }
+.flaticon-people-4:before { content: "\f134"; }
+.flaticon-man:before { content: "\f135"; }
+.flaticon-office:before { content: "\f136"; }
+.flaticon-fitness-tracker:before { content: "\f137"; }
+.flaticon-unlocked:before { content: "\f138"; }
+.flaticon-gymnast-diet:before { content: "\f139"; }
+.flaticon-research:before { content: "\f13a"; }
+.flaticon-animal:before { content: "\f13b"; }
+.flaticon-brain:before { content: "\f13c"; }
+.flaticon-tracker:before { content: "\f13d"; }
+.flaticon-blood:before { content: "\f13e"; }
+.flaticon-scalpel:before { content: "\f13f"; }
+.flaticon-skin:before { content: "\f140"; }
+.flaticon-camel:before { content: "\f141"; }
+.flaticon-pain:before { content: "\f142"; }
+.flaticon-ovum:before { content: "\f143"; }
+.flaticon-healthcare-and-medical:before { content: "\f144"; }
+.flaticon-pet-2:before { content: "\f145"; }
+.flaticon-cat-1:before { content: "\f146"; }
+.flaticon-horse:before { content: "\f147"; }
+.flaticon-search:before { content: "\f148"; }
+.flaticon-horse-head:before { content: "\f149"; }
+.flaticon-cow-silhouette:before { content: "\f14a"; }
+.flaticon-magnifying-glass-and-fish:before { content: "\f14b"; }
+.flaticon-carrot:before { content: "\f14c"; }
+.flaticon-sheep:before { content: "\f14d"; }
+.flaticon-rat:before { content: "\f14e"; }
+.flaticon-dog:before { content: "\f14f"; }
+.flaticon-parrot-shape:before { content: "\f150"; }
+.flaticon-urine:before { content: "\f151"; }
+.flaticon-support:before { content: "\f152"; }
+.flaticon-almond:before { content: "\f153"; }
+.flaticon-peanut:before { content: "\f154"; }
+.flaticon-skin-2:before { content: "\f155"; }
+.flaticon-esophagus:before { content: "\f156"; }
+.flaticon-pollen:before { content: "\f157"; }
+.flaticon-food-2:before { content: "\f158"; }
+.flaticon-virus:before { content: "\f159"; }
+.flaticon-inhalator:before { content: "\f15a"; }
+.flaticon-people:before { content: "\f15b"; }
+.flaticon-bell:before { content: "\f15c"; }
+.flaticon-union:before { content: "\f15d"; }
+.flaticon-page:before { content: "\f15e"; }

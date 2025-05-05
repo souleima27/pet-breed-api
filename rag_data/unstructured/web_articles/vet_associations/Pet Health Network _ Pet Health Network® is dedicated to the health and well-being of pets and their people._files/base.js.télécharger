@@ -1,0 +1,145 @@
+
+(function($) {
+
+IWapi.dialogBase = {
+      
+  //
+  // Methods
+  // 
+
+  clearContent: function() {
+    // If removing the contents, ensure that we clean-up properly
+    
+    // Remove any MutationObservers associated with inner content.
+    // Typically this is only used for iFrame content, to update
+    // the iFrame size, as it won't do it automatically by itself.
+    if (this.observer) {
+      this.observer.disconnect();
+      delete observer;
+        
+      this.observer = null;
+    }
+
+    // Make sure to detach any Drupal behaviors.
+    if (!this.wrapper.is(':empty')) {
+      Drupal.detachBehaviors(this.wrapper);
+      this.wrapper.empty();
+    }
+  },
+
+  loadStart: function() {
+    this.setTitle('Loading...');
+    this.spinner.spin(this.wrapper.get(0));
+  },
+
+  loadComplete: function() { this.spinner.stop(); },
+
+
+  //
+  // Show and prepare dialog content.
+  //
+
+  showHTML: function(data, settings) {
+    this.clearContent();
+
+    this.wrapper.append(data);
+    this.show(settings);
+
+    if (data && data.length) Drupal.attachBehaviors(this.wrapper);
+  },
+
+  iFrame: function(src, settings) {
+    var self = this;
+    self.clearContent();
+    settings = settings || {};
+
+    var params = { }, data = { }, curUrl = IWapi.utils.getCurrentPath();
+    if (curUrl.length && src.indexOf(curUrl) < 0) data.origin = params.destination = curUrl;
+
+    if (this.displayFallback) {
+      $('<div class="alternative-link">'
+        + 'If you are seeing an error or having trouble loading this dialog, try <a href="' 
+        + IWapi.utils.buildURL(src.replace(/\/(iframe|ajax)(\/|\?|#|$)/, '/nojs$2'), params)
+        + '">here instead</a>.</div>').appendTo(this.wrapper);
+    }
+
+    self.frame = $('<iframe width="100%" height="0" scrolling="auto">').bind('load', function() {
+      self.loadComplete();
+
+      var info = IWapi.frame.getFrameInfo(this), title = settings.title;
+      if (info) {
+        var frameDoc = (this.contentWindow || this.contentDocument);
+        frameDoc.sharedModal = self; // capture dialog settings.
+        title = title || info.title;
+        self.frame.height(info.height);
+        
+        // If available, keep track of the iFrame and update size
+        if (MutationObserver) {
+          var embedEl = frameDoc.document.getElementById('ifr-embed-wrapper');
+
+          self.observer = new MutationObserver(function(m) {
+            self.frame.height($(embedEl).height());
+          });
+
+          self.observer.observe(embedEl, { 
+            attributes: true, childList: true,
+            characterData: true, subtree: true
+          });
+        }
+      }
+      else {
+        self.frame.height(!settings || !settings.height || settings.height === 'auto' ? 300 : settings.height);
+      }
+
+      self.setTitle(title || 'Dialog');
+      self.reposition(settings); // reposition the dialog after loading.
+
+    }).appendTo(this.wrapper);
+
+    this.show(settings);
+    this.loadStart();
+
+    self.frame.attr('src', IWapi.utils.buildURL(src, data));
+  }
+};
+
+
+// Create the modal dialog meant to be shared by Modal AJAX calls.
+Drupal.behaviors.iwapiModalDialog = {
+
+  attach: function(context, settings) {
+    window.sharedModal = window.sharedModal || new IWapi.Dialog(true);
+
+    $('a.use-modal-ajax, a.use-modal-iframe', context).once('iw-modal', function() {
+      var link = $(this), href = link.attr('href');
+      var matches = /(?:^|\s)use-modal-([^\s'"]+)/.exec(link.attr('class'));
+      var replPat = /\/nojs(\/|\?|#|$)/gi;
+
+      if (!(href && href.length > 0)) return;
+
+      if (matches[1] === 'iframe') {
+        link.click(function(event) {
+          event.preventDefault();
+
+          window.sharedModal.iFrame(href.replace(replPat, "/iframe$1"));
+          return false;
+        });
+      }
+      else if (matches[1] === 'ajax') {
+        link.click(function() {
+          window.sharedModal.clearContent();
+          window.sharedModal.loadStart();
+          window.sharedModal.show({ width: 200 });
+        });
+
+        Drupal.ajax[href] = new Drupal.ajax(href, this, {
+          url: href.replace(replPat, "/ajax$1"),
+          event:'click',
+          progress: { type: '' } // Use the iwapi spinner instead of the Drupal one.
+        });
+      }
+    });
+  }
+};
+
+} (jQuery));

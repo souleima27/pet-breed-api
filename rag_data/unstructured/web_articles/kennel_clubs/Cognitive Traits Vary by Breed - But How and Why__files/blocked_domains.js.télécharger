@@ -1,0 +1,74 @@
+document.addEventListener('DOMContentLoaded', () => {
+
+    // 3. Add a ChangeListener to fire whenever the field has been changed that will check the email domain
+    async function handleEmailChange(submitButton, event) {
+        const newValue = event.target.value; // Get the new value of the email input
+        let emailDomain = newValue.substring(newValue.indexOf('@') + 1);  // Get substring starting at '@'
+
+        // Validate the email domain
+        let isDisposable = await fetch('/wp-admin/admin-ajax.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                action: 'check_domain', // The AJAX action hook that maps to the PHP function
+                domain: emailDomain, // The domain you want to check
+            }),
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  // If the request is successful, you get the API response
+                  return JSON.parse(data.data).disposable; // This is the response from the PHP function
+              } else {
+                  console.error('Failed to check domain');
+                  return null;
+              }
+          })
+          .catch(error => {
+              console.error('Error checking domain:', error);
+              return null;
+          });
+        
+          // enable/disable button based on the domain
+          if (isDisposable) {
+            submitButton.disabled = true;
+          } else if (!isDisposable){
+            submitButton.disabled = false;
+          }
+    }
+    // /3
+
+    // 2. Set up the form handler from the MutationObserver to make the submit button disabled and add a ChangeListener to the email field as soon as it has been added
+    function setupFormHandler(form) {
+        // Get the submit button of the form and prevent form submission
+        const submitButton = form.querySelector('input[type="submit"]'); // Select the submit button
+        submitButton.disabled = true;
+
+        // Get the email field of the form and add a ChangeListener to it
+        const emailInput = form.querySelector('input[name="email"]'); // Select the email input field
+        emailInput.addEventListener('change', (event) => handleEmailChange(submitButton, event));
+    }
+    // /2
+
+    // 1. Create and start the MutationObserver to watch for the registration form being added
+    const observer = new MutationObserver((mutationsList) => {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        const form = node.querySelector('#gigya-register-form, .gigya-register-form');
+                        if (form) {
+                            setupFormHandler(form); // Set up handler if a new form appears dynamically
+                        }
+                    }
+                });
+            }
+        }
+    });
+
+    // Start observing the entire document body for child node additions
+    observer.observe(document.body, { childList: true, subtree: true });
+    // /1
+
+});

@@ -1,0 +1,13 @@
+fastapi>=0.110.0
+uvicorn>=0.27.0
+langchain>=0.1.11
+transformers>=4.38.2
+pandas>=2.1.4
+pypdf>=3.17.4
+sentence-transformers>=2.2.2
+faiss-cpu>=1.7.4
+accelerate>=0.27.2
+torch>=2.1.2 --index-url https://download.pytorch.org/whl/cpu
+openpyxl>=3.1.2
+huggingface-hub>=0.19.4
+numpy>=1.26.4

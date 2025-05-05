@@ -1,0 +1,17 @@
+.featured {
+    color: #CD2027;
+    width: 200px;
+    height: 80px;
+    background: #FFF url("/images/sponsors/kapownative.png") center bottom no-repeat; 
+    background-size: contain;
+    color: #000;
+    font-size: 12px;
+    text-decoration: none;
+    text-align: center;
+    box-shadow: 1px 1px 4px #000;
+}
+#header .featured {
+ float: right;
+    margin-right: 100px;
+    border-radius: 20px;
+}

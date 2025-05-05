@@ -1,0 +1,165 @@
+var __exitHandler = {
+	
+	loaded: false,
+	
+	run: function() {
+		var me = this,
+			windowEl = $(window),
+			pos = {},
+			cookie = me._getCookie("exitIntent");
+		
+		if (!cookie) {
+			$(document).on('mousemove', function (event) {
+			    if (typeof(pos.x) != 'undefined') {
+					var deltaX = pos.x - event.offsetX,
+			            deltaY = pos.y - event.offsetY;
+
+			        if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY > 0) {
+			            //upward movement		
+						if((event.pageY - windowEl.scrollTop()) <= 5){
+							//not active
+							if (!me.loaded) {
+								me.loaded = true;
+								me._showDialog();
+							}
+						}
+			        }
+			    }
+			    pos = {
+			        x : event.offsetX,
+			        y : event.offsetY
+			    };
+			});
+		}
+	},
+	
+	_showDialog: function() {
+ 		var me = this, 
+ 			windowEl = $(window),
+			bodyEl = $("body"),
+			shadeEl = $("#shadebg"),
+ 			dialogEl,
+			scrollLeft = windowEl.scrollLeft(),
+			scrollTop = windowEl.scrollTop(),
+ 			html = '<div id="dialog" style="position:absolute;background-color:#FFF;border:10px solid #FFF">' +
+ 				'<div style="height:35px;background-color:#CD2027;">' +
+ 					'<div onclick="__exitHandler._onHideDialogClick()" style="float:right;padding:8px 12px 0px 0px;font-size:16px;color:#FFF;cursor:pointer;">X</div>' +
+ 				'</div>' +
+ 				'<div style="height:100px;">'+
+ 					'<div style="float:left;text-align:center;width:400px;padding:5px 0px 0px 0px;">' +
+ 						'<img src="images/AHNOW-LOGO-720.jpg" style="height:90px;cursor:pointer;" onclick="__exitHandler._onHomeClick()"/>' +
+ 					'</div>' +
+ 					'<div style="float:right;width:400px;text-align:center;padding:35px 0px 0px 0px;">' +
+							'<div style="font-size:32px;font-weight:bold;color:#CD2027;text-align:center;">BEFORE YOU GO...</div>' +
+						'</div>' + 
+ 				'</div>' +
+ 				'<div style="background-color:#DDD;height:300px;">' +
+ 					'<div style="display:table-cell;width:400px;height:300px;overflow:hidden;">' +
+ 						'<img src="images/seal_manfred_richter_pixabay.jpg" title="Image by Manfred Richter from Pixabay" style="width:400px;height:300px;"/>' +
+ 					'</div>' +
+ 					'<div style="display:table-cell;width:400px;height:300px;overflow:hidden;vertical-align:top;">' +
+							'<div style="width:100%;height:225px;">' +
+							'<div style="font-size:21px;color:#444;padding:20px;">Will you please consider a $5 donation to support our nonprofit and help keep ' +
+							'Animal Help Now helping animals.<p>We rely on your kind contributions.</div>' +
+ 						'</div>' +
+							'<div style="width:100%;height:75px;background-color:#FFF;text-align:center;">' +
+								'<div style="padding-top:25px;color:#444;cursor:pointer;" onclick="__exitHandler._onDonateClick()">DONATE NOW!</div>' +
+							'</div>' +
+						'</div>' +
+ 				'</div>' + 
+ 			'</div>';
+
+ 		if (shadeEl.parent().length == 0) {
+ 	 		shadeEl = $('<div id="shadebg"></div>');
+ 			shadeEl.css({
+ 	 			position: "fixed",
+	 	 		top: "0px",
+	 	 		left: "0px",
+	 	 		height: "100%",
+	 	 		width: "100%",
+	 	 		display: "block",
+	 	 		overflow: "hidden",
+	 	 		opacity: "0.4",
+	 	 		backgroundColor: "#000"
+ 	 		});
+ 			bodyEl.append(shadeEl);
+ 		}
+ 		dialogEl = $(html);
+ 		bodyEl.append(dialogEl);
+ 		dialogEl.css({
+ 			left: ((window.innerWidth/2) - (dialogEl.width()/2) + scrollLeft),
+ 			top: ((window.innerHeight/2) - (dialogEl.height()/2) + scrollTop)
+ 		});
+		shadeEl.fadeIn();
+        dialogEl.fadeIn();
+		me._trackDialogOpen();
+	},
+	
+	_onHomeClick: function() {
+		this._hideDialog();
+		document.location.href = "/";
+	},
+	
+	_onDonateClick: function() {
+		this._hideDialog();
+		this._trackDonateClick();
+		var win = window.open('/donate.php', '_blank');
+		win.focus();
+ 		
+	},
+	
+	_onHideDialogClick: function() {
+		this._hideDialog();
+	},
+	
+	_hideDialog: function() {
+		var me = this,
+			bodyEl = $("body"),
+			shadeEl = $("#shadebg"),
+			dialogEl = $("#dialog");
+		shadeEl.fadeOut();
+		dialogEl.fadeOut();			
+		dialogEl.remove();
+		this._createCookie("exitIntent", "true", 1);
+	},
+	
+	_createCookie: function(name, value, days) {
+	    var expires;
+
+	    if (days) {
+	        var date = new Date();
+	        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+	        expires = "; expires=" + date.toGMTString();
+	    } else {
+	        expires = "";
+	    }
+	    document.cookie = encodeURIComponent(name) + "=" + encodeURIComponent(value) + expires + "; path=/";
+	},
+
+	_getCookie: function(name) {
+	    var nameEQ = encodeURIComponent(name) + "=";
+	    var ca = document.cookie.split(';');
+	    for (var i = 0; i < ca.length; i++) {
+	        var c = ca[i];
+	        while (c.charAt(0) === ' ') {
+	            c = c.substring(1, c.length);
+	        }
+	        if (c.indexOf(nameEQ) === 0) {
+	            return decodeURIComponent(c.substring(nameEQ.length, c.length));
+	        }
+	    }
+	    return null;
+	},
+	
+	_trackDialogOpen: function() {		
+		_analytics.trackEvent({category: 'Feedback/Donation Requested'});
+	},
+	
+	_trackDonateClick: function() {	
+		_analytics.trackEvent({category: 'Feedback/Donation Requested Acted Upon'});
+	}
+};
+
+$(document).ready(function() {
+	__exitHandler.run();
+});

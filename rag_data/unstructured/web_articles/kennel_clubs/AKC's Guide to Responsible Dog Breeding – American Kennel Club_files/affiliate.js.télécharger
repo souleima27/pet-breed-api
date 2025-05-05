@@ -1,0 +1,30 @@
+document.addEventListener("DOMContentLoaded", function() {
+    setTimeout(function() {
+        let list = document.querySelectorAll('a');
+        list.forEach((element) => searchAndAdd(element));
+    }, 500);
+});
+
+function searchAndAdd(element) {
+    let str = vars.domains;
+    const items = str.split(/\r?\n|\r|\n/g);
+
+    for (const trigger of items) {
+        if (element.href.startsWith(trigger)) {
+            addParam(element);
+            break;
+        }
+    }
+}
+
+function addParam(element) {
+    let url = element.href;
+
+    try {
+        let objUrl = new URL(url);
+        objUrl.searchParams.append('rel', 'sponsored');
+        element.setAttribute("href", objUrl);
+    } catch (error) {
+        console.error('Skipping rel=sponsored add to ' + url + ' (could not be made into a URL object)');
+    }
+}

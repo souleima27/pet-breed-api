@@ -1,0 +1,30 @@
+(function ($) {
+	const fritzAnalytics = {
+		dataLayer: {
+			siteName: window.fritzScripts.siteName,
+			init: function () {
+				const dataLayer = this;
+				window.addEventListener('DOMContentLoaded', (event) => {
+					dataLayer.domLoadCustomEvents();
+				});
+			},
+			domLoadCustomEvents: function () {
+				window.dataLayer = window.dataLayer || [];
+				dataLayer.push({
+					"event": "page_load_started",
+					"audienceType": this.getData('audience')
+				});
+			},
+			getData: function( key ) {
+				if (typeof window[this.siteName].dataLayer[key] !== 'undefined') {
+					return window[this.siteName].dataLayer[key];
+				}
+				return '';
+			}
+		},
+		init: function () {
+			fritzAnalytics.dataLayer.init();
+		},
+	};
+	fritzAnalytics.init();
+})(jQuery);

@@ -1,0 +1,513 @@
+
+var IWapi = IWapi || { };
+
+
+// -------------------------
+// URLs and paths utilities
+// -------------------------
+
+IWapi.utils = {
+
+escapeRegex: function(str) {
+  return str.replace(/[^\$\+\*\?\[\]\{\}\\]/g, "\$&");
+},
+
+/**
+ * Helper function to uppercase the first letter of a string.
+ * 
+ * @param {string} str
+ *  String to transform.
+ * @returns {string}
+ *  String which has the first letter uppercased.
+ */
+ucFirst: function(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);  
+},
+
+/**
+ * Determine if clean URLs are available or not, based
+ * on the construction of the current path.
+ * 
+ * @returns boolean
+ *  true use of clean URLs is detected
+ */
+useCleanURL: function() {
+  // the result is stored in a static variable "isClean" for later reuse.
+  if (IWapi.utils.useCleanURL.isClean === undefined) {
+    var url  = /(\?|&)q=/.exec(window.location.href);
+
+    // This test fails for frontpage, if not path is empty, but is still safe
+    // because we default to generating a safe URL for either case.
+    IWapi.utils.useCleanURL.isClean = (url == null && IWapi.utils.getCurrentPath().length > 0);
+  }
+
+  return IWapi.utils.useCleanURL.isClean;
+},
+
+/**
+ * Gets the current page Drupal URL (excluding the query or base path).
+ * This would be the Drupal internal path.
+ * 
+ * @returns string
+ *  The current internal path for Drupal. This would be the path
+ *  without the "base path", however, it can still be a path alias.
+ */
+getCurrentPath: function() {
+  if (IWapi.utils.getCurrentPath.path === undefined) {
+    // can't use the useCleanURL() function, because it will cause a infinite recursive loop!
+    var uri = /(\?|&)q=([^&]*)/.exec(window.location.href);
+    var regex = new RegExp('^' + IWapi.utils.escapeRegex(Drupal.settings.basePath), 'i');
+
+    IWapi.utils.getCurrentPath.path = (uri === null || uri.length < 2)
+      ? window.location.pathname.replace(regex, '') : uri[1];
+  }
+
+  return IWapi.utils.getCurrentPath.path;
+},
+
+/**
+ * Build a URL based on a Drupal internal path. This function will test
+ * for the availability of clean URL's and prefer them if available.
+ * 
+ * @returns string
+ *  the valid Drupal URL based on values passed.
+ */
+buildURL: function(rawURL, params) {
+  var qStr = "";
+
+  if (params) {
+    if (typeof(params) == "string") qStr = params;
+    else {
+      for (var name in params) {
+        qStr += '&' + encodeURIComponent(name) + '=' + encodeURIComponent(params[name]);
+      }
+
+      qStr = qStr.substr(1);
+    }
+  }
+
+  // leave absolute URL's alone
+  if ((/^[a-z]{2,5}:\/\//i).test(rawURL)) {
+    if (qStr.length) rawURL += (rawURL.indexOf('?') === -1 ? '?' : '&') + qStr;
+    return rawURL;
+  }
+
+  // Clean the raw URL and prepare it for get fully assembled for Drupal.
+  rawURL = rawURL ? rawURL.replace(/^[\/,\s]+|<front>|([\/,\s]+$)/g, "") : "";
+  var isCleanURL = IWapi.utils.useCleanURL() || rawURL.length == 0;
+
+  if (qStr.length > 0) {
+    qStr = (isCleanURL ? '?' : '&') + qStr;
+  }
+
+  return Drupal.settings.basePath + (isCleanURL ? '': "?q=") + rawURL + qStr;  
+},
+
+
+// -------------------------
+// Objects and inheritance
+// -------------------------
+
+/**
+ * Utility function used to find an object based on a string name.
+ *  IE: 'IWapi.mapkit.MarkerManager'
+ *  
+ * @returns Object
+ *  the object matching the name, or NULL if it cannot be found.
+ */
+getObject: function(name) {
+  if (name && name.split) return null;
+
+  var part, ref = window, parts = name.split('.');
+  while (part = parts.shift())
+    if ((ref = ref[part]) === undefined) return null;
+
+  return ref;
+},
+
+/**
+ * Allow us to properly extend JS classes, by copying the prototype.
+ * This function properly inherits a prototype by creating a new
+ * instance of the parent object first, so modifications to the subclass
+ * do not effect the parent class.
+ * 
+ * Also allow subclass to find the parent prototype, incase parent
+ * methods need to be called from the subclass.
+ * 
+ * @param Object subclass
+ *  Function constructor which inherits it's prototype from parent
+ * @param Object parent
+ *  Base or super class.
+ */
+inherit: function(subclass, parent) {
+  var overrides = subclass.prototype;
+
+  // we need to copy this prototype, by assigning it to a function
+  // without parameters. Otherwise, we'll get initialization errors.
+  var tmp = function() {};
+  tmp.prototype = parent.prototype;
+  subclass.prototype = new tmp();
+
+  // Reapply all the prototype function overrides, if needed.
+  if (overrides) {  
+    for (var i in overrides) subclass.prototype[i] = overrides[i];
+  }
+
+  subclass.prototype.__construct = subclass;
+  subclass.prototype.parent = parent.prototype;
+
+  // ensure parent constructor is set.
+  if (!parent.prototype.__construct) parent.prototype.__construct = parent;
+}
+
+};
+
+/**
+ * 
+ 
+  var hasMutationEvents = !(MutationObserver) && ("MutationEvent" in window);
+  console.log(hasMutationEvents);
+
+  if true then load polymer shim
+ * @param {type} $
+ * @returns {undefined}
+ */
+(function($) {
+ 
+  //
+  // utils redux (w/ jQuery)
+  //
+
+  IWapi.utils.restripe = function(table) {
+    table.find('> tbody > tr:visible, > tr:visible')
+      .removeClass('odd even')
+      .filter(':even').addClass('odd').end()
+      .filter(':odd').addClass('even');
+  };
+
+
+  //
+  // Geometry
+  //
+
+  IWapi.geom = {
+
+    ElementDim: function(el, dim) {
+      var edges, dims;
+      this.el = el, this.rel = 0;
+          
+      switch(dim) {
+        case 'height':
+          edges = [ "Top", "Bottom" ];
+          break;
+        
+        case 'width':
+          edges = ["Left", "Right"];
+          break;
+
+        default:
+          throw new Exception('Invalid dimension specified for IWapi.geom.ElementDim.');
+      }
+
+      // In the case of border-box we'd only want margins, otherwise we want padding + border.
+      // This will be the offsets relative to the CSS height or width.
+      dims = el.css("boxSizing") === "border-box" ? [ "margin" + edges[0], "margin" + edges[1] ] : [
+        "padding" + edges[0], "padding" + edges[1],
+        "border" + edges[0] + "Width", "border" + edges[1] + "Width",
+        "margin" + edges[0], "margin" + edges[1]
+      ];
+
+      this.dims = dims;
+      this.px = this.calcValue();
+    },
+
+    // Simple / basic rectangles
+    Rect: function(left, top, right, bottom) {
+      if (left instanceof $) {
+        var off = left.offset() || { top: 0, left: 0 };
+        this.t = off.top;
+        this.l = off.left;
+        this.b = off.top + left.height();
+        this.r = off.left + left.width();
+      }
+      else {
+        if (top <= bottom) this.t = top, this.b = bottom;
+        else               this.t = bottom, this.b = top;
+
+        if (left <= right) this.l = left, this.r = right;
+        else               this.l = right, this.r = left;
+      } 
+    },
+
+    // Rectangles of HTML elements.
+    ElementRect: function(element) { this.element = $(element); },
+
+    setHeight: function(el, h) {
+      h -= IWapi.geom.calcHeightBuffer(el, true);
+
+      // Rather than use jQuery.width() function which 
+      // before ver. 1.8 didn't detect box-sizing, or
+      // ver. 1.8 and after requires extra calculation.
+      el.css({ width: Math.floor(h) });
+    },
+
+    setWidth: function(el, w) {
+      w -= IWapi.geom.calcWidthBuffer(el, true);
+
+      // Rather than use jQuery.width() function which 
+      // before ver. 1.8 didn't detect box-sizing, or
+      // ver. 1.8 and after requires extra calculation.
+      el.css({ width: Math.floor(w) });
+    },
+
+    calcWidthBuffer: function(el, incMargins) {
+      var func = IWapi.geom.parseCssSize, space = 0;
+  
+      if (el.css("boxSizing") !== "border-box") {
+        space += func(el.css("paddingLeft"), el) || 0;
+        space += func(el.css('paddingRight'), el) || 0;
+        space += func(el.css("borderLeftWidth"), el) || 0;
+        space += func(el.css("borderRightWidth"), el) || 0;
+      }
+
+      if (incMargins) {
+        space += func(el.css("marginLeft"), el) || 0;
+        space += func(el.css("marginRight"), el) || 0;
+      }
+
+      return Math.ceil(space);
+    },
+    
+    calcHeightBuffer: function(el, incMargins) {
+      var func = IWapi.geom.parseCssSize, space = 0;
+  
+      if (el.css("boxSizing") !== "border-box") {
+        space += func(el.css("paddingTop"), el) || 0;
+        space += func(el.css("paddingBottom"), el) || 0;
+        space += func(el.css("borderTopWidth"), el) || 0;
+        space += func(el.css("borderBottomWidth"), el) || 0;
+      }
+
+      if (incMargins) {
+        space += func(el.css("marginTop"), el) || 0;
+        space += func(el.css("marginTottom"), el) || 0;
+      }
+
+      return Math.ceil(space);
+    },
+  
+  
+    /**
+     * Convert a CSS style dimension into pixel value.
+     * This will check for the units and do conversions.
+     * 
+     * @param string size
+     *  String representation 
+     * @param object element
+     *  The element which the size value belongs.
+     * @param string dim
+     *  The dimension this value belongs to (width|height).
+     *  This is only important for '%'.
+     * @returns float
+     *  The value in pixels of the size.
+     */
+    parseCssSize: function(size, element, dim) {
+      if (typeof size === 'number') return size;
+      if (!size.length) return 0;
+
+      dim = dim || 'width';
+      var matches = /(\d+(?:\.\d*)?)\s?(px|em|%|)/i.exec(size);
+
+      if (matches && matches.length) {
+        var value = parseFloat(matches[1]);
+
+        if (isNaN(value)) return 0;
+
+        switch (matches[2]) {
+          case '':   // Empty, treat like pixel value.
+          case 'px':
+            return value; 
+          case '%':
+            return $(element).parent()[dim]() * value / 100;
+          case 'em':
+            return IWapi.geom.em2px(value, element);
+        }
+      }
+
+      throw new 'Unsupported unit or value for size conversion.';
+    },
+
+    /**
+     * Convert an 'em' value into a pixel value. This will be
+     * a best estimate
+     * 
+     * @param float value
+     *  Value in 'em' to convert.
+     * @param object element
+     *  The element for which the 'em' value was applied.
+     * @returns float
+     *  Value in pixels that equals the 'em' that were passed.
+     */
+    em2px: function(value, element) {
+      var styles = {
+        display: 'none', border: 0,
+        height: 'auto',  margin: 0, padding: 0,
+        fontSize: '1em', lineHeight: 1
+      };
+
+      var e = $('<div>&nbsp;</div>').css(styles).appendTo($(element).parent());
+      var h = e.height();
+      e.remove();
+
+      return value * h;
+    }
+  };
+
+
+  //
+  // Define constants and dimensions.
+  //
+
+  IWapi.geom.Edges = {
+    TOP: 0x01,
+    LEFT: 0x10,
+    BOTTOM: 0x02,
+    RIGHT: 0x20
+  };
+  
+  IWapi.geom.Direction = {
+    VERTICAL:   IWapi.geom.Edges.TOP | IWapi.geom.Edges.BOTTOM,
+    HORIZONTAL: IWapi.geom.Edges.LEFT | IWapi.geom.Edges.RIGHT
+  }
+  
+  IWapi.geom.Direction['ANY'] = IWapi.geom.Direction.HORIZONTAL | IWapi.geom.Direction.VERTICAL;
+
+  // Ensure these are kept as constants,
+  // They can be safely used as enumerations.
+  Object.freeze(IWapi.geom.Edges);
+  Object.freeze(IWapi.geom.Direction);
+
+
+  /**
+   * Prototype for class tracking an element's size along one dimension.
+   */
+  IWapi.geom.ElementDim.prototype = {
+    calcValue: function() {
+      var regex = /^(\d+(?:\.\d*)?|\.\d*)\s*(px|)/i, match;
+      var retval = 0;
+      
+      for (var i = 0; i < this.dims.length; ++i) {
+        if (match = regex.exec(this.el.css(this.dims[i]))) {
+          var value = parseFloat(match[1]);
+
+          if (!isNaN(value) && value > 0) retval += value;
+        }
+      }
+    },
+    
+    getDim: function(parentPx) {
+      return this.px + this.rel * parentPx;
+    }
+  };
+
+
+  /**
+   * Prototype for class representing a rectangular area.
+   */
+  IWapi.geom.Rect.prototype = {
+    getPosition: function() { return { x: this.l, y: this.t }; },
+    getWidth:    function() { return this.r - this.l; },
+    getHeight:   function() { return this.b - this.t; },
+ 
+    volume: function() { return this.getWidth() * this.getHeight(); },
+
+    ptInRect: function(pt) {
+      var pos = this.getPosition();
+      pt.x -= pos.x; pt.y -= pos.y;
+      
+      return (pt.x >= 0 && pt.x <= this.getWidth())
+        && (pt.y >= 0 && pt.y <= this.getHeight());
+    },
+
+    intersection: function(rect) {
+      var o1 = rect.getPosition(), o2 = this.getPosition();
+
+      var x = Math.max(o1.x, o2.x), y = Math.max(o1.y, o2.y);
+      var r = Math.min(o1.x + rect.getWidth(), o2.x + this.getWidth());
+      var b = Math.min(o1.y + rect.getHeight(), o2.y + this.getHeight());
+
+      // Check that this point is in the rectangle.
+      return (x > r ||  y > b) ? null : new IWapi.geom.Rect(x, y, r, b);
+    },
+
+    contains: function(rect) {
+      var a = rect.getPosition(), b = this.getPosition();
+
+      return a.x >= b.x && a.x + rect.getWidth() <= b.x + this.getWidth()
+        && a.y >= b.y && a.y + rect.getHeight() <= b.y + this.getHeight();
+    }
+  };
+
+  IWapi.geom.ElementRect.prototype = {
+    getPosition: function() {
+      var o = this.element.offset();
+      return { x: o.left, y: o.top };
+    },
+
+    getWidth: function() { return this.element.outerWidth(); },
+    getHeight: function() { return this.element.outerHeight(); }
+  };
+
+  // Allow ElementRect to behave just like regular Rect object.
+  IWapi.utils.inherit(IWapi.geom.ElementRect, IWapi.geom.Rect);  
+
+
+  //
+  // iFrames
+  //
+
+  IWapi.frame = {
+
+    //
+    // From frame
+    //
+
+    isInFrame: function() { return (window.top !== window.self); },
+    isEmbedFrame: function() { return (window.top !== window.self) && $('body').hasClass('iframe-embed'); },
+    
+    canAccessTop: function() {
+      try {
+        window.top.location.toString();
+        return true;
+      }
+      catch (e) { return false; }  
+    },
+
+    //
+    // From parent
+    //
+
+    getDocument: function(ifr) {    
+      try {
+        var win = ifr.contentWindow || ifr.contentDocument;
+        win.location.toString();
+        return win.document;
+      }
+      catch (e) { return null; }
+    },
+    
+    getFrameInfo: function(ifr) {        
+      try {
+        var win = ifr.contentWindow || ifr.contentDocument;
+
+        return {
+          title: /^[^|]*/.exec(win.document.title)[0].replace(/^\s+|\s+$/, ''),
+          uri: win.location.toString(),
+          height: $(win.document).height()
+        };
+      }
+      catch (e) { return null; }
+    }
+  };
+
+} (jQuery));

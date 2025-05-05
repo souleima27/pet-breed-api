@@ -1,0 +1,18 @@
+
+
+(function($) {
+
+  Drupal.behaviors.marqueeLinks = {
+    attach: function() {
+      $('.view-id-slider li.marquee-frame').each(function() {
+        var link = $(this).find('.panel-nav-link a');
+
+        if (link.length > 0) {
+          $(this).css({ cursor: 'pointer' });
+          $(this).click(function() {  window.location = link.attr('href') });
+        }
+      });
+    }
+  }
+  
+}(jQuery));

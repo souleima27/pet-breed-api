@@ -1,0 +1,1198 @@
+/*!
+ * Initial config and attribute helpers
+ */
+(function(){
+	window.lazySizesConfig = window.lazySizesConfig || {};
+	window.lazySizesConfig.expand = 1500;
+
+	document.addEventListener('DOMContentLoaded', function(){ document.documentElement.setAttribute('ready', ''); });
+	window.addEventListener('load', function(){ document.documentElement.setAttribute('loaded', ''); });
+})();
+
+
+/*!
+ * Manage device/os/helpers classnames 20200830.0200
+ */
+(function(){
+	var ua = navigator.userAgent.toLowerCase();
+	var up = navigator.platform.toLowerCase();
+	var standard = ['firefox','android'];
+	var classes = [];
+
+	for (var i = 0, max = standard.length; i < max; i++) if (ua.indexOf(standard[i]) != -1) classes.push(standard[i]);
+	if (ua.indexOf('opr') > -1) classes.push('opera');
+	if (ua.indexOf('fxios') > -1) classes.push('firefox');
+	if (ua.indexOf('crios') > -1) classes.push('chrome');
+	if (ua.indexOf('chrome') > -1 && ua.indexOf('opr') == -1) classes.push('chrome');
+	if (ua.indexOf('safari') > -1 && ua.indexOf('chrome') == -1 && ua.indexOf('crios') == -1 && ua.indexOf('fxios') == -1) classes.push('safari');
+	if(/(ipad|iphone|ipod)/g.test(ua)) classes.push('ios');
+	if (up.indexOf('mac') > -1) classes.push('mac');
+	if (up.indexOf('win') > -1) classes.push('win');
+
+	document.documentElement.className += ' ' + classes.join(' ');
+})();
+
+
+/*!
+ * Intent Attributes
+ * @requires ten1seven/what-input
+ */
+(function(namespace){
+	var update = function(type) {
+		if(type == 'pointer') type = 'mouse';
+		['keyboard','mouse','touch'].forEach(function(value) {
+			if(type != value) document.documentElement.removeAttribute(value);
+		});
+		document.documentElement.setAttribute(type, '');
+	};
+	update(whatInput.ask('intent'));
+	whatInput.registerOnChange(update, 'intent');
+})('whatintent');
+
+
+/*!
+ * Open external links in a new tab
+ */
+(function(){
+	document.addEventListener('click', function(event){
+		var a = event.target.closest('a[rel*="external"]');
+		if (!a) return;
+		event.preventDefault();
+		window.open(a.getAttribute("href"));
+	});
+})();
+
+
+/*!
+ * Forms enhancements
+ */
+(function(namespace){
+	var autoresize = function(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; };
+	var is_field = function(event) { return event.target && (event.target.matches('input') || event.target.matches('select') || event.target.matches('textarea')); };
+	var is_select = function(event) { return event.target && event.target.matches('select'); };
+	document.body.addEventListener('change', function(event){ if(is_select(event)){ event.target.removeAttribute('placeholder'); if(event.target.matches('[link]')) window.location = event.target.value; } });
+	document.body.addEventListener('invalid', function(event){ if(is_field(event)) event.target.classList.add('-validated'); }, true);
+	document.body.addEventListener('focusout', function(event){ if(is_field(event)) event.target.checkValidity(); });
+	document.body.addEventListener('input', function(event){ if(event.target.matches('textarea[data-autoresize]')) autoresize(event.target); });
+	var init = function() { document.querySelectorAll('textarea[data-autoresize]').forEach(function(el, index) { autoresize(el); }); };
+	window.addEventListener('reinitialize', init);
+	init();
+})('forms');
+
+
+/*!
+ * Attach window events
+ * @requires v.window.utils
+ */
+(function(){
+	if(typeof window.utils !== 'undefined'){
+		window.utils.listeners.add('scroll', 'throttled', 'throttle',  50);
+		window.utils.listeners.add('scroll', 'debounced', 'debounce', 100);
+		window.utils.listeners.add('resize', 'throttled', 'throttle', 100);
+		window.utils.listeners.add('resize', 'debounced', 'debounce', 200);
+	}
+
+	window.addEventListener('resize/debounced', function(event) {
+		if(event.detail.width) window.dispatchEvent(new CustomEvent('recalculate'));
+	});
+})();
+
+
+/*!
+ * Update --vw/--vh on resize
+ * @requires v.window.utils
+ */
+(function(){
+	var calculate = function() {
+		if(event.detail.width){
+			document.documentElement.style.setProperty('--vw', document.documentElement.clientWidth * 0.01 + 'px');
+			document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+		}
+		if(event.detail.height) document.documentElement.style.setProperty('--vha', window.innerHeight * 0.01 + 'px');
+	};
+	window.addEventListener('resize/throttled', calculate);
+	window.addEventListener('resize/debounced', calculate);
+})('vwh');
+
+
+/*!
+ * Trigger animations on scroll v20231115.1215
+ * @requires wilsonpage/fastdom
+ */
+(function(namespace){
+    var selector = '[reveal]:not([reveal*="+"])';
+    var margins = '0px 0px -10% 0px';
+
+    var reveal = function(el) {
+        fastdom.mutate(function(){
+            var value = el.getAttribute('reveal');
+            if (value == '' || value.substring(0,1) == '/') {
+                el.removeAttribute('reveal');
+                el.setAttribute('revealed', value);
+                el.dispatchEvent(new CustomEvent('revealed'));
+            } else {
+                el.setAttribute('revealing',value);
+                el.dispatchEvent(new CustomEvent('revealing'));
+                el.addEventListener('transitionend', function () {
+                    el.removeAttribute('reveal');
+                    el.removeAttribute('revealing');
+                    el.setAttribute('revealed',value);
+                    el.dispatchEvent(new CustomEvent('revealed'));
+                }, {once: true});
+            }
+        });
+    };
+
+    var init = function() {
+        if ('IntersectionObserver' in window && document.documentElement.matches('[m4n]')) {
+            var observer = new IntersectionObserver(function(entries, observer){
+                entries.forEach(function(entry) {
+
+                    if(entry.isIntersecting){
+                        var data = entry.target.getAttribute('reveal') || false;
+                        var delay = (data) ? (data + '').split('/')[1] : 0;
+                        if(delay && delay > 25){
+                            setTimeout(function(){ reveal(entry.target); }, delay);
+                        } else {
+                            reveal(entry.target);
+                        }
+                        observer.unobserve(entry.target);
+                    }
+                });
+            },{ rootMargin: margins });
+
+            setTimeout(function() {
+                eachOnce(selector, namespace, function(index, root) {
+                    if(root.offsetParent && root.getBoundingClientRect().bottom < 100){
+                        reveal(root);
+                    } else {
+                        observer.observe(root);
+                    }
+                });
+            },100);
+        }  else {
+            eachOnce(selector, namespace, function(index, root) {
+                reveal(root);
+            });
+        }
+    };
+
+    window.addEventListener('reinitialize', init);
+    init();
+})('reveal');
+
+
+/*!
+ * (v) Reveal Delays Sequencer v20220225.2130
+ * Sequence elements in the same row and in groups
+ */
+(function(namespace){
+
+	var init = function(){
+		var els = document.querySelectorAll('[aligned]');
+		var data = {};
+
+		els.forEach(function(el, index) {
+			var offset = el.getBoundingClientRect();
+			var group = el.getAttribute('aligned') || 0;
+			var id = 't' + Math.ceil(offset.top);
+			if(!data.hasOwnProperty(group)) data[group] = {};
+			if(!data[group].hasOwnProperty(id)) data[group][id] = [];
+			data[group][id].push({el: el, left: Math.ceil(offset.left)});
+		});
+
+		for (var group in data) {
+			if (data.hasOwnProperty(group)) {
+				for (var key in data[group]) {
+					if (data[group].hasOwnProperty(key)) {
+						var set = data[group][key];
+						set.sort(function(obj1, obj2) {
+							return obj1.left - obj2.left;
+						});
+						set.forEach(function(item,index){
+							item.el.style.setProperty('--rvq', index);
+						});
+					}
+				}
+			}
+		}
+	};
+
+	window.addEventListener('reinitialize', init);
+	window.addEventListener('recalculate', init);
+	init();
+
+})('aligned');
+
+
+/*!
+ * Remote hovers
+ * @requires eachOnce
+ */
+(function(namespace){
+	var init = function(){
+		eachOnce('[hoverwatch]', namespace, function(index, root) {
+			root.addEventListener('mouseenter', function(event) {
+				root.closest('[hovercatch]').setAttribute('hover',true);
+			});
+			root.addEventListener('mouseleave', function(event) {
+				root.closest('[hovercatch]').removeAttribute('hover');
+			});
+			root.addEventListener('focus', function(event) {
+				root.closest('[hovercatch]').setAttribute('hover', true);
+			});
+			root.addEventListener('blur', function(event) {
+				root.closest('[hovercatch]').removeAttribute('hover');
+			});
+		});
+	};
+
+	init();
+	window.addEventListener('reinitialize', init);
+})('hoverwatch');
+
+
+/*!
+ * (v) Toaster 20211211.2315
+ * Toast notifications
+ */
+(function(namespace){
+	var wrap = document.createElement('div');
+	wrap.classList.add(namespace);
+	document.body.append(wrap);
+
+	window.addEventListener('toast', function(event) {
+		var time = event.detail.time || 2000;
+		var p = document.createElement('p');
+		p.innerHTML = '<span>' + event.detail.message + '</span>';
+		if(event.detail.class) p.setAttribute('class', event.detail.class);
+		p.onClick = function(event) { event.target.classList.remove('-active'); };
+		wrap.append(p);
+		p.getBoundingClientRect();
+		p.classList.add('-active');
+		setTimeout(function() {
+			p.classList.remove('-active');
+			setTimeout(function() {
+				p.remove();
+			},time);
+		},time);
+	});
+
+	window.toast = function(message, classname, time) {
+		window.dispatchEvent(new CustomEvent('toast', { detail: { message: message, class: classname, time: time} }));
+	};
+})('toaster1');
+
+
+/*!
+ * Set cookie for x number of days
+ */
+(function(namespace){
+	window.set_cookie = function(name,days) {
+		var days = days || 365;
+		var d = new Date;
+		d.setTime(d.getTime() + 24*60*60*1000*days);
+		document.cookie = name + "=1;path=/;expires=" + d.toGMTString();
+	};
+	window.cookie_exists = function(cookieName) {
+		const cookies = document.cookie.split(';');
+		for (let cookie of cookies) {
+			const [name, value] = cookie.trim().split('=');
+			if (name === cookieName) {
+				return true;
+			}
+		}
+		return false;
+	}
+})('cookies');
+
+
+/*!
+ * Fix for ol[start]
+ */
+(function(namespace){
+	var init = function() {
+		document.querySelectorAll('ol[start]').forEach(function(el, index) {
+			el.style.counterReset = 'ordered ' + (parseInt(el.getAttribute('start'),10) - 1);
+		});
+	};
+
+	window.addEventListener('reinitialize', init);
+	init();
+})('olstart');
+
+
+/*!
+ * (v) Offset Watcher v20240110.1300
+ */
+(function(namespace){
+    var selector = '[offsetwatch]';
+    var update = function(el) {
+        el.style.removeProperty('--offset-left');
+        el.style.removeProperty('--offset-right');
+        var offset = el.getBoundingClientRect();
+        el.style.setProperty('--offset-left', offset.left + 'px');
+        el.style.setProperty('--offset-right', document.documentElement.clientWidth - offset.right + 'px');
+        el.style.setProperty('--offset-width', offset.width + 'px');
+    };
+    var calculate = function(){
+        document.querySelectorAll(selector)?.forEach(function(el, index) {
+            update(el);
+        });
+        eachOnce(selector, namespace, function(index, el) {
+            el.addEventListener('update', function() { update(el); });
+        });
+    };
+    calculate();
+	setTimeout(function(){ calculate(); }, 500);
+    window.addEventListener('reinitialize', calculate);
+    window.addEventListener('recalculate', calculate);
+})('offsetwatch');
+
+
+/*!
+ * Lazyload images v20230428.1400
+ * @requires eachOnce
+ */
+(function(namespace){
+	var loaded = function(event){
+		event.currentTarget.removeAttribute('waiting');
+		event.currentTarget.setAttribute('loaded', true);
+	}
+	var error = function(event){
+		event.currentTarget.removeAttribute('waiting');
+		event.currentTarget.setAttribute('error', true);
+	}
+	var init = function(){
+		eachOnce('img[loading="lazy"]:not([loaded])', namespace, function(index, root) {
+			if (!root.complete) {
+				root.setAttribute('waiting', true);
+				root.addEventListener('load', loaded, false);
+				root.addEventListener('error', error, false);
+			} else {
+				root.setAttribute('loaded', true);
+			}
+		});
+	};
+
+	window.addEventListener('reinitialize', init);
+	init();
+})('lazy');
+
+
+/*!
+ * Autosizes v20230428.1400
+ * Set [sizes] attribute of an image automatically
+ */
+(function(namespace){
+	var init = function(){
+		document.querySelectorAll('img[autosizes]')?.forEach(function(el, index) {
+			el.setAttribute('sizes', el.offsetWidth + 'px')
+		});
+	};
+
+	window.addEventListener('reinitialize', init);
+	window.addEventListener('recalculate', init);
+	init();
+})('autosizes');
+
+
+/*!
+ * Tooltips
+ * @requires popperjs
+ * @requires tippy
+ */
+(function(namespace){
+    if(typeof tippy != 'undefined'){
+        var init = function(){
+            tippy('[tooltip]', {
+                arrow: false,
+                allowHTML: true,
+                interactive: true,
+                offset: [0, 5],
+                maxWidth: 360,
+                animation: 'fade',
+                theme: 'site',
+                trigger: 'mouseenter focus click',
+                appendTo: function() {
+                    return document.body;
+                },
+                onCreate(instance) {
+                    var content;
+                    if (instance.reference.matches('[title]')){
+                        content = instance.reference.getAttribute('title');
+                        instance.reference.removeAttribute('title');
+                    } else if (instance.reference.matches('[href]')){
+                        if (instance.reference.hash){
+                            var el = document.querySelector(instance.reference.hash);
+                            content = el ? el.innerHTML : false
+                            instance.reference.removeAttribute('href');
+                        }
+                    } else {
+                        content = false
+                    }
+
+                    if (content) {
+                        instance.setContent(function() {
+                            var attr = instance.reference.getAttribute('tooltip');
+                            if (attr == '') attr = '-br:1 -cs:i -cs:b7 -t:10';
+                            return '<div class="tooltip1 ' + (attr) + '"><div>' + content + '</div></div>';
+                        });
+                    } else {
+                        instance.destroy();
+                        return;
+                    }
+                }
+            });
+        };
+        window.addEventListener('reinitialize', init);
+        init();
+    }
+})('tooltips');
+
+
+/*!
+ * Sentry v20211120.1930
+ * Event trigger on viewport enter/leave
+ */
+(function(namespace){
+    if ('IntersectionObserver' in window) {
+        var selector = '.' + namespace;
+        var init = function() {
+
+            var observer = new IntersectionObserver(function(entries, observer){
+                entries.forEach(function(entry) {
+                    var top = !(entry.boundingClientRect.top > window.innerHeight / 2);
+                    var visible = entry.isIntersecting;
+                    if (entry.target.dataset.loaded || entry.target.hasAttribute('initial')){
+                        var what = visible ? 'enter' : 'leave';
+                        var where = top ? 'top' : 'bottom';
+                        entry.target.dispatchEvent(new CustomEvent(what));
+                        entry.target.dispatchEvent(new CustomEvent(what + ':' + where));
+                    } else {
+                        entry.target.dataset.loaded = true;
+                    }
+                });
+            });
+
+            eachOnce(selector, namespace, function(index, root) {
+                observer.observe(root);
+            });
+        };
+
+        window.addEventListener('reinitialize', init);
+        init();
+    }
+})('sentry1');
+
+
+/*!
+ * Lightbox
+ * @requires electerious/basicLightbox
+ */
+(function(namespace){
+    if (typeof basicLightbox !== 'undefined'){
+        window.addEventListener('click', function() {
+            if(event.target.matches('[lightbox], [lightbox] *')){
+                event.preventDefault();
+                var el = event.target.closest('[lightbox]');
+                var target_selector = el.getAttribute('lightbox') || false;
+                if (!target_selector) return false;
+                var target_element = document.querySelector(target_selector);
+                if (!target_element) return false;
+                var template = target_element.innerHTML;
+                var close = document.createElement("i");
+                close.setAttribute('class','lightbox1-close icon-close-bold');
+                close.setAttribute('close',true);
+
+                window.lightbox = basicLightbox.create(template, {
+                    className: 'lightbox1',
+                    onShow: function(instance) { instance.element().append(close); }
+                });
+                window.lightbox.show();
+            }
+            if(event.target.matches('.basicLightbox__placeholder, .lightbox1-close, .lightbox1-close *')){
+                event.preventDefault();
+                window.lightbox.close();
+            }
+        });
+        window.addEventListener('keyup', function(event) {
+            if(event.key == "Escape" && typeof window.lightbox !== 'undefined'){
+                window.lightbox.close();
+            }
+        });
+    }
+})('lightbox');
+
+
+/*!
+ * Globals
+ * @requires alpinejs/alpine
+ */
+(function(namespace){
+	document.addEventListener('alpine:init', function(){
+
+		Alpine.store('app', {
+			overlay: false,
+			states: {},
+			unoverlay: function(){ // reset all states that indicate overlay (2+)
+				for (const property in this.states) if(this.states[property] > 1) this.states[property] = false
+			}
+		});
+
+		Alpine.effect(function(){ // watch states and act on overlay
+			var states = Alpine.store('app').states;
+			var status = false;
+			for (const property in states) if(states[property] > 1) status = states[property];
+			Alpine.store('app').overlay = status;
+		});
+
+		Alpine.bind('transitions', function(){
+			return {
+				'x-transition:enter': '-transition -enter',
+				'x-transition:enter-start': '-from -enter-start',
+				'x-transition:enter-end': '-to -enter-end',
+				'x-transition:leave': '-transition -leave',
+				'x-transition:leave-start': '-to -leave-start',
+				'x-transition:leave-end': '-from -leave-end'
+			};
+		});
+
+	});
+})('app');
+
+
+/*!
+ * (v) Archives v20231207.1730
+ * @requires alpinejs/alpine
+ */
+(function(namespace){
+	document.addEventListener('alpine:init', function(){
+
+		// utils
+
+		var compare = function(o1, o2, exclude) { // compare two object excluding some properties
+			var c1 = JSON.parse(JSON.stringify(o1));
+			var c2 = JSON.parse(JSON.stringify(o2));
+			exclude?.forEach(function(el, index) {
+				if(c1.hasOwnProperty(el)) delete c1[el];
+				if(c2.hasOwnProperty(el)) delete c2[el];
+			});
+			return JSON.stringify(c1) === JSON.stringify(c2);
+		};
+
+		var urlbuilder = function(params, base, extras) { // build url from filters
+			base = base == '?' ? null : base;
+			var url = new URL(base || window.location.href);
+			url.searchParams.delete('page');
+			url.hash = '';
+
+			// delete and apply filters from blueprint
+			for ([group, value] of Object.entries(Object.assign({}, params, extras || {}))) {
+				if (Array.isArray(value)) {
+					url.searchParams.delete(group + '[]');
+					if (value && value.length){
+						value.forEach(function(el, index) {
+							url.searchParams.append(group + '[]', el);
+						});
+					}
+				} else {
+					url.searchParams.delete(group);
+					if (value && value != '') url.searchParams.set(group, value);
+				}
+			};
+
+			return url;
+		};
+
+		// initialize
+
+		var init = function(){
+			eachOnce('[' + namespace + ']', namespace, function(index, el) {
+
+				var id = el.getAttribute('id');
+
+				var instant; // load results instantly
+				var initialized; // set after first effects run
+				var debouce; // debouce variable for
+
+				var opts = JSON.parse(el.getAttribute(namespace)) || '{}';
+
+				opts.status = null; // loading status indicator (false - idle, 1 - appending, 2 - replacing)
+				opts.filters = Object.assign({}, opts.blueprint, opts.filters);
+				opts.filtered = !compare(opts.filters, opts.blueprint, opts.exclude); // helper var to know when results are filtered
+
+				opts.unfilter = function(group, value) { // remove filters
+					var that = this;
+					if (group) { // remove particular filter
+						if (typeof value == 'undefined' || this.filters[group] == value){
+							this.filters[group] = this.blueprint[group];
+						} else {
+							var index = this.filters[group].indexOf(value);
+							if (index > -1) this.filters[group] = this.filters[group].filter(function(v,i,a) { return i != index; }); // force filter updates
+						}
+					} else { // remove all except excluded
+						var excluded = {};
+						this.exclude?.forEach(function(el, index) { excluded[el] = that.filters[el]; });
+						this.filters = Object.assign({}, this.blueprint, excluded);
+					}
+				};
+
+				opts.load = function(url, append, extras) { // load url and replace slots
+					var that = this;
+					var url = url || urlbuilder(that.filters, that.base, extras).toString();
+					that.status = append ? 1 : 2;
+
+					fetch(url, { headers: {'X-Requested-With': 'XMLHttpRequest' }}).then(function (response) {
+						return response.text();
+					}).then(function (html) {
+						var parser = new DOMParser();
+						var _html = parser.parseFromString(html, 'text/html');
+
+						document.querySelectorAll('[slot^="' + id + '/"]').forEach(function(el, index) {
+							var name = el.getAttribute('slot');
+							var subname = name.replace(id + '/', '');
+							var updated = _html.querySelector('[slot="' + name + '"]')?.innerHTML;
+							if( subname.includes( ['paging'] ) ){
+								var total_pages = el.getAttribute('data-total-pages');
+								var current_page = el.getAttribute('data-current-page');
+								if (total_pages == current_page) updated = '';
+							}
+							if(!(subname.includes(['entries']) && append)) el.innerHTML = '';
+							if(updated) el.insertAdjacentHTML('beforeend', updated);
+
+						});
+
+						if (that.urls && !append)
+							history.replaceState(null, null, url + (that.hash ? '#' + that.hash : '')) // update url but not when appending
+
+						that.status = null; // reset status
+						window.dispatchEvent(new CustomEvent('reinitialize'));
+					}).catch(function (err) {
+						console.warn('Something went wrong.', err);
+						if(typeof toast != 'undefined') toast('Error', '-c:e1t -cs:i'); // show error notification
+						that.status = null;  // reset status
+					});
+				};
+
+				opts.sort = function(name) { // sorting helper
+					instant = true;
+					if(this.filters.sort == name){
+						this.filters.order = this.filters.order == 'asc' ? 'desc' : 'asc';
+					} else {
+						this.filters.sort = name;
+						this.filters.order = this.blueprint.order;
+					}
+					setTimeout(function() { instant = false; }, 0);
+				};
+
+				opts.label = function(group, item) { // fetch labels for tags
+					if (!Array.isArray(this.blueprint[group])){ // if group is not array
+						return typeof formatters !== 'undefined' && formatters[group] ? formatters[group].to(item) : item;
+					} else {
+						return document.querySelector('[name="' + group + '[]"][value="' + item + '"').getAttribute('label');
+					}
+				};
+
+				opts.init = function() { // initialize watchers
+					var that = this;
+
+					Alpine.effect(function() {
+						for (var [key, value] of Object.entries(that.filters)) {}; // hack to trigget effect deep watch
+						if(!initialized) return initialized = true; // do not run on initial store init
+						that.filtered = !compare(that.filters, that.blueprint, that.exclude); // helper var to know when results are filtered
+						that.status = 2; // set status to replacing
+
+						var delay = that.filtered && !instant ? (that.delay || 1000) : 0; // no delay when resetting or when instant is set
+						clearTimeout(debouce);
+						debouce = setTimeout(function() { that.load(); }, delay);
+					});
+				};
+
+				Alpine.store(id, opts);
+			});
+		};
+
+		window.addEventListener('reinitialize', init);
+		init();
+	});
+})('archives');
+
+
+/*!
+ * (v) Simple Carousel v20230615.0000
+ * @requires alpinejs/alpine
+ */
+(function(namespace){
+	document.addEventListener('alpine:init', function(){
+		Alpine.data(namespace, function(){
+			return {
+				track: null,
+				progress: 0,
+				indicator: 0,
+				wrapper: null,
+				viewport: null,
+				scroll: null,
+				monitor: function() {
+					this.progress = this.wrapper.scrollLeft / this.track;
+				},
+				update: function() {
+					this.track = this.wrapper.scrollWidth - this.wrapper.clientWidth;
+					this.indicator = this.wrapper.clientWidth / this.wrapper.scrollWidth;
+					this.viewport = this.$root.offsetWidth;
+					this.scroll = Math.floor(window.getComputedStyle(this.$root).getPropertyValue('--c') || 1) * this.wrapper.querySelector(':scope > :first-child').offsetWidth;
+					this.monitor();
+				},
+				next: function() {
+					this.wrapper.scrollLeft = this.wrapper.scrollLeft + this.scroll;
+				},
+				prev: function() {
+					this.wrapper.scrollLeft = this.wrapper.scrollLeft - this.scroll;
+				},
+				init: function() {
+					var that = this;
+					this.wrapper = this.$root.querySelector('[wrapper]');
+					this.update();
+
+					this.$root.querySelector('[track]')?.addEventListener('click', function(event) {
+						var box = that.$el.getBoundingClientRect();
+						var progress = (event.clientX - box.left) / that.$el.clientWidth;
+						that.wrapper.scrollLeft = that.wrapper.scrollWidth * progress;
+					});
+
+					this.wrapper.addEventListener('scroll', Alpine.throttle(function() { that.monitor() }, 40));
+					this.wrapper.addEventListener('scroll', Alpine.debounce(function() { that.monitor() }, 80));
+					window.addEventListener('recalculate', function() { that.update() });
+				}
+			};
+		});
+	});
+})('carousel');
+
+
+/*!
+ * Tabs
+ * @requires alpinejs/alpine
+ */
+(function(namespace){
+	document.addEventListener('alpine:init', function(){
+		Alpine.data(namespace, function(){
+			return {
+				start: function(group, initial) {
+					var that = this;
+					this.$store.app.states[group] = window.location.hash ? window.location.hash.substring(1) : initial;
+				},
+				open: function(tab) {
+					this.tab = tab;
+					window.location.hash = tab;
+				}
+			}
+		});
+	});
+})('tabs');
+
+
+/*!
+ * Collapse v20231023.2115
+ * @requires alpinejs/alpine
+ */
+(function(namespace){
+    var act = function (event, root) {
+        if(event.target != root) return
+        window.dispatchEvent(new CustomEvent('recalculate'))
+    };
+
+    var init = function(){
+        eachOnce('[collapse]:not([norecalc])', namespace, function(index, root) {
+            root.addEventListener('transitionend', function(event) { act(event,root); });
+            root.addEventListener('transitioncancel', function(event) { act(event,root); });
+        });
+    };
+
+    init();
+    window.addEventListener('reinitialize', init);
+
+    document.addEventListener('alpine:init', function(){
+		var open = {
+			'animals': false,
+			'topics': false,
+			'role': false
+		};
+		var url = new URL(window.location.href);
+		url.searchParams.forEach(function(value, key) {
+			const queryVar = key.replace('[]','');
+			if ( open.hasOwnProperty(queryVar) ) open[queryVar] = true;
+		});
+        Alpine.data(namespace, function( ex=null ){
+            return {
+                open: open,
+                show: function(state) {
+                    if (state) this.$el.style.display = null;
+                    this.$el.style.setProperty('--height', this.$el.scrollHeight + 'px');
+                    if (state) this.$el.style.display = 'none';
+                    return state;
+                },
+				toggle: function(id, single) {
+					if(single){
+						this.open = this.open[id] ? {} : {[id]: true};
+					} else {
+						this.open[id] = !this.open[id];
+					}
+				}
+            }
+        });
+    });
+})('collapse');
+
+
+/*!
+ * (v) Tiny Slider v20220325.1630
+ * @requires alpinejs/alpine
+ * @requires ganlanyuan/tiny-slider
+ */
+(function(namespace){
+	window.carousels = window.carousels || {};
+
+	window.carousels.gallery1 = {
+		gutter: 10,
+		items: 1,
+		slideBy: 1,
+		speed: 500,
+		controls: false,
+		nav: false,
+		loop: false,
+		rewind: true,
+		preventScrollOnTouch: 'auto',
+		responsive: { 720: { gutter: 16 } },
+		callbacks: {
+			'indexChanged': function(index, info, alpine) {
+				var caption = alpine.$el.querySelector('[entry]:nth-child(' + index + ') [caption]');
+				if (caption) alpine.caption = caption.innerHTML;
+			}
+		}
+	};
+
+	document.addEventListener('alpine:init', function(){
+		Alpine.data(namespace, function(){
+			return {
+				first: false,
+				last: false,
+				captions : function() {
+					var caption = this.$el.querySelector('.tns-slide-active[entry] [caption]');
+					this.caption = caption ? caption.innerHTML : '';
+				},
+				update: function() {
+					var info = this.carousel.getInfo();
+					this.transitioning = false;
+					this.first = this.current == 0;
+					this.last = this.current >= this.count - info.items;
+					this.pages = Math.ceil(this.carousel.getInfo().slideCount / this.carousel.getInfo().slideBy);
+					this.page = Math.ceil(this.current / info.slideBy + 1);
+				},
+				create : function(settings_id) {
+					var that = this;
+					var opts = window.carousels[settings_id];
+					opts.container = that.$el.querySelector('[entries]');
+					if(this.$el.hasAttribute('autoplay')) opts.autoplay = this.$el.getAttribute('autoplay');
+
+					that.current = opts.startIndex || 0;
+					that.count = this.$el.querySelectorAll('[entry]').length;
+					if (opts.callbacks && opts.callbacks['beforeInit']) opts.callbacks['beforeInit'](that);
+					this.carousel = tns(opts);
+					this.update();
+
+					this.carousel.events.on('indexChanged', function(info) {
+						that.previous = that.current;
+						that.current = info.displayIndex - 1;
+						that.first = that.current == 0;
+						that.last = that.current >= info.slideCount - info.items;
+						that.page = Math.ceil(that.current / info.items + 1);
+						if (opts.callbacks && opts.callbacks['indexChanged']) opts.callbacks['indexChanged'](info.displayIndex, info, that);
+					});
+					this.carousel.events.on('transitionStart', function(info) {
+						that.transitioning = true;
+					});
+					this.carousel.events.on('transitionEnd', function(info) {
+						that.transitioning = false;
+					});
+
+					window.addEventListener('recalculate', function() {
+						that.update();
+					});
+				}
+			};
+		});
+	});
+})('slider');
+
+/*!
+ * Newsletter signup flyout
+ * @requires alpinejs/alpine
+ */
+(function(namespace) {
+	document.addEventListener('alpine:init', function() {
+		Alpine.data(namespace, (formId, cookieDuration) => ({
+			cookieDuration: cookieDuration,
+			formId: formId,
+			active: false,
+			open() {
+				const formId = this.formId.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+				const cookieName = `aaha_flyout_${formId}`;
+				if ( Number(this.cookieDuration) <= 0 ) {
+					// If cookie duration is 0,
+					// show the flyout every time
+					this.active = true;
+				} else {
+					// otherwise, check if the cookie exists,
+					// if not, show the flyout and set the cookie.
+					if (!cookie_exists(cookieName)) {
+						this.active = true;
+						set_cookie(cookieName, this.cookieDuration);
+					}
+				}
+			},
+			close() {
+				this.active = false;
+			}
+		}));
+	});
+})('flyout1');
+
+/*!
+ * Initialize Alpine
+ * @requires alpinejs/alpine
+ */
+(function(){
+    window.Alpine.start();
+	var init = function() {
+		document.querySelectorAll('[cloaked]').forEach(function(el, index) {
+			el.removeAttribute('cloaked');
+		});
+	};
+	window.addEventListener('reinitialize', init);
+    init();
+})();
+
+(function ($) {
+	const hospitalLocator = {
+		init: function () {
+			// advanced filters toggle
+			document.querySelector('#hospital-advanced-toggle')?.addEventListener('click', function(event) {
+				event.preventDefault();
+				var el = document.querySelector('#hospital-advanced-filters');
+				// set display to block
+				if(el) el.style.display = el.style.display == 'block' ? 'none' : 'block';
+			});
+
+			// form submit event listener
+			jQuery(window).on('hospital-locator-submit', function () {
+				var $form = document.querySelector('#hospital-locator-form');
+				if ($form) {
+					$form.submit();
+				}
+			});
+
+			// main form submit event listener
+			document.querySelector('#locator-search')?.addEventListener('click', function(event) {
+				event.preventDefault();
+				hospitalLocator.trigger('hospital-locator-submit', 'hospital-locator-form');
+			});
+
+			// single hospital lookup event listeners
+			var $lookups = document.querySelectorAll('.recno-lookup');
+			if ($lookups.length) {
+				$lookups.forEach(function($lookup) {
+					$lookup.addEventListener('click', function(event) {
+						event.preventDefault();
+						event.stopPropagation();
+						var $form = document.querySelector('#hospital-locator-form');
+						var $input = $form.querySelector('[name="recno"]');
+						var $input2 = $form.querySelector('[name="hospital_name"]');
+						$input.value = $lookup.getAttribute('data-recno');
+						$input2.value = $lookup.getAttribute('data-hospital');
+						// $form.submit();
+
+						hospitalLocator.trigger('hospital-locator-submit', 'hospital-locator-form');
+					});
+				});
+			}
+		},
+		trigger: function (tmAction, id=null) {
+			var customAction = tmAction;
+			var formId = id;
+			grecaptcha.execute(fritzScripts.recaptchaKey, {action: 'forms'} ).then(function (token) {
+				var recaptchaElements = document.getElementsByName('g-recaptcha-response');
+				for ( var i = 0; i < recaptchaElements.length; i++ ) {
+					recaptchaElements[i].value = token;
+				}
+				window.dispatchEvent(new CustomEvent(customAction, {'detail': {
+					'formId': formId
+				}}));
+			});
+		},
+	};
+	hospitalLocator.init();
+})(jQuery);
+
+(function(){
+	document.addEventListener('DOMContentLoaded', function(){
+		// prevent default for nav button mega
+		document.querySelectorAll('.nav1-button .button1').forEach(function(el) {
+			el.addEventListener('click', function(event) {
+				event.preventDefault();
+			});
+		});
+
+		jQuery('.referral-modal').on('click', function(event) {
+			event.preventDefault();
+			jQuery('#hospitalTypesModel').show().addClass('show');
+		});
+		jQuery('#hospitalTypesModel button').on('click', function(event) {
+			event.preventDefault();
+			jQuery('#hospitalTypesModel').hide().removeClass('show');
+		});
+
+		jQuery('#hospitalTypesModel').on('click', function(event) {
+			if (event.target === this) {
+				jQuery(this).hide().removeClass('show');
+			}
+		});
+
+		if (document.querySelector('#locatorScroll')) {
+			document.querySelector('#locatorScroll').
+			scrollIntoView({behavior: 'smooth'});
+		}
+
+		// function isMobileDevice() {
+		// 	return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+		// }
+		// if (!isMobileDevice()) {
+		// 	jQuery('.mobile').hide();
+		// }
+
+		jQuery('.flyout1, .signup1').on('hsvalidatedsubmit', '.hs-form', function (e) {
+			setTimeout(function() {
+
+				jQuery('.hs-formid').each(function() {
+					var formid = jQuery(this).data('form-id');
+
+					var $submittedMessage = jQuery(this).find('.submitted-message');
+
+					if ($submittedMessage.length) {
+						jQuery('.hs-formid[data-form-id="' + formid + '"]').each(function() {
+							if ( jQuery(this).find('.submitted-message').length ) {
+								return;
+							}
+							var $form = jQuery(this).find('form');
+							if ($form.length) {
+								$form.hide();
+								$submittedMessage.clone().appendTo(jQuery(this));
+							}
+						});
+					}
+				});
+
+			}, 500);
+		});
+
+		jQuery('#resourceDownload').on('click', function(e) {
+			e.preventDefault();
+			downloadAll(this);
+		});
+
+		jQuery('.downloads1').on('hsvalidatedsubmit', '.hs-form', function (e) {
+			downloadAll(this);
+		});
+
+		async function downloadAll(that) {
+			jQuery('.downloads1 .button1').attr('disabled', 'disabled').text('Please Wait...');
+
+			var container = jQuery(that).closest('.downloads1');
+
+			var Spinner = jQuery(container).find('.spinner');
+			Spinner.show();
+
+			var checked = container.find('input[type="checkbox"]:checked');
+			var fileUrls = checked.map(function() {
+				return {
+					'url': jQuery(this).val(),
+					'label': jQuery(this).data('label') || 'download'
+				};
+			}).get();
+
+			try {
+				await createZip(fileUrls);
+
+				jQuery('.downloads1 .button1').removeAttr('disabled').text('Download');
+				Spinner.hide();
+				jQuery('.modal1-outer').click();
+			} catch (error) {
+				console.error('An error occurred:', error);
+				jQuery('.downloads1 .button1').removeAttr('disabled').text('Download');
+				Spinner.hide();
+			}
+		}
+
+		function createZip(urls) {
+			return new Promise((resolve, reject) => {
+				if (typeof JSZip === 'undefined' || urls.length === 1) {
+					urls.forEach(function(url) {
+						download(url.url, url.label);
+					});
+					resolve();
+					return;
+				}
+
+				try {
+					const worker = new Worker('/wp-content/themes/aaha/_html/source/assets/scripts/worker.js');
+
+					worker.onmessage = function(event) {
+						if (event.data.content) {
+							var link = document.createElement('a');
+							link.href = window.URL.createObjectURL(event.data.content);
+							link.download = document.title + " - downloads.zip";
+							link.click();
+							resolve(); // Resolve the Promise when ZIP creation is successful
+						} else if (event.data.error) {
+							console.error('Error creating zip file:', event.data.error);
+							reject(new Error(event.data.error)); // Reject the Promise on error
+						}
+					};
+
+					worker.postMessage({ urls });
+
+				} catch (error) {
+					urls.forEach(function(url) {
+						download(url.url, url.label);
+					});
+					console.error('Error creating zip file:', error);
+					reject(error); // Reject the Promise on error
+				}
+			});
+		}
+
+		function download(url, filename) {
+			fetch(url)
+			  .then(response => response.blob())
+			  .then(blob => {
+				const link = document.createElement("a");
+				link.href = URL.createObjectURL(blob);
+				link.download = filename;
+				link.click();
+			})
+			.catch(console.error);
+		}
+
+		if ( document.querySelector('#microchip-results') ) {
+			const urlParams = new URLSearchParams(window.location.search);
+			if (urlParams.has('microchip_id')) {
+				var results = document.querySelector('#microchip-results');
+				var targetY = results.getBoundingClientRect().top + window.pageYOffset;
+				// delay scroll to allow for page load
+				setTimeout(function() {
+					window.scrollTo(0, targetY - 100);
+				}, 500);
+			}
+		}
+	});
+})();

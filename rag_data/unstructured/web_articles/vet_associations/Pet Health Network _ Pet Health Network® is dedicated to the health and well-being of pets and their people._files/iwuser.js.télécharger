@@ -1,0 +1,35 @@
+
+(function($) {
+
+  /**
+   * Generate a popup login box for users to login.
+   */
+  Drupal.behaviors.iwapiLoginPopup = {
+    attach: function (context, settings) {
+      var settings = settings.iwLogin || {};
+      var selector = "#iwlogin-popup-link, a[href*='/user/login'], a[href*='?q=user/login']";
+      var uri = 'iwuser-login/iframe/form';
+
+      // Force HTTPS if it is required, and not already using SSL.
+      if (settings.forceHttps && location.protocol != 'https:')
+        uri = 'https://' + location.host + IWapi.utils.buildURL(uri);
+
+      // Create the IW login dialog only once.
+      if (!IWapi.loginDlg) {
+        IWapi.loginDlg = new IWapi.Dialog(true);
+        IWapi.loginDlg.displayFallback = true;
+        
+        IWapi.loginDlg.wrapper.attr('id', 'iwuser-login')
+          .dialog("option", "dialogClass", "login-dialog");
+      }
+
+      $(selector, context).click(function(event) {
+        IWapi.loginDlg.iFrame(uri, { width: 450, title: 'Login' });
+
+        event.preventDefault();
+        return false;
+      });
+    }
+  };
+
+}(jQuery));

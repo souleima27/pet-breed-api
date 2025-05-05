@@ -1,0 +1,68 @@
+
+
+(function($) {
+
+  /**
+   * Class of modal dialogs created mainly to contain AJAX
+   * content, but an general enough for user in other contexts.
+   */
+  IWapi.Dialog = function(isModal) {
+    var dlgAttrs = {
+      modal:isModal, autoOpen:false,
+      resizable:false, draggable:true,
+      
+      create: function(e, ui) {
+        // Remove this corner styles from our dialogs.
+        $(this).dialog('widget').removeClass('ui-corner-all')
+          .find('.ui-dialog-titlebar').removeClass('ui-corner-all');
+      }
+    };
+
+    this.wrapper = $('<div class="modal-dialog">').dialog(dlgAttrs);
+    this.spinner = new Spinner();
+  };
+
+  IWapi.Dialog.prototype = {
+    _allowedAttrRegex: /^(title|width|height|dialogClass|minWidth|minHeight|maxHeight|maxWidth)$/,
+
+    setTitle: function(title) {
+      this.wrapper.dialog('option', 'title', title);
+    },
+
+    reposition: function(settings) {
+      this.wrapper.dialog('option', 'position', { });
+    },
+
+    show: function(settings) {
+      var cleanSetup = { width:'60%', height:'auto' };
+
+      // make sure to prevent any settings that could make unwanted changes.
+      for (var key in settings) {
+        if (this._allowedAttrRegex.test(key)) cleanSetup[key] = settings[key];
+      }
+
+      // Ensure that the popup dialog does not exceed the document width.
+      cleanSetup.width = IWapi.geom.parseCssSize(cleanSetup.width, document.body);
+      if (cleanSetup.width > document.body.clientWidth - 10) {
+        cleanSetup.width = document.body.clientWidth - 10;  
+      }
+      
+      // Update display settings, then show dialog.
+      this.wrapper.dialog('option', cleanSetup).dialog('open');
+      this.reposition(settings);
+
+      // Append a click handler to the overlay to close dialog.
+      $(".ui-widget-overlay, .ui-dialog-overlay").click(function() {
+        $(".ui-dialog .ui-dialog-content").dialog("close");
+      });
+    },
+
+    close: function() {
+      this.clearContent();
+      this.wrapper.dialog('close');
+    }
+  };
+  
+  $.extend(IWapi.Dialog.prototype, IWapi.dialogBase);
+
+} (jQuery));

@@ -1,0 +1,87 @@
+(function() {
+    const projectVariables = {
+        bLiveDcmApi: 'https://dcm.akctvcontrol.com/dcm/campaign/2061',
+        analyticsApi: 'https://data.akc.tv/analytics-v1',
+        bAnalyticsScript: 'https://js.blivenyc.com/bplayer-shaka/bAnalytics.js',
+        analyticsBundleID: 'dcm.akctv',
+        analyticsVersion: '1.0.1',
+        adsUseIMA: true,
+        useTestAds: true,
+        scrollFloat: true,
+        playerS3Bucket: 'https://akctvcontrol-public.s3.us-east-1.amazonaws.com/web/images/player',
+        logoImageLink: 'https://link.akc.tv/dcm',
+    };
+
+    // Make projectVariables available globally
+    window.projectVariables = projectVariables;
+
+    try {
+        // Import the BDcmPlayer class from the module
+
+        // Determine which URL to use for import
+        const useLocalPlayer = new URLSearchParams(window.location.search).get('localPlayer') === '1';
+        const playerUrl = useLocalPlayer 
+            ? './bDcmPlayer.js' 
+            : 'https://install.akctvcontrol.com/public/js/blive/bDcmPlayer.js';
+            // : 'https://install-pre-prod-akc.blivenyc.com/public/js/blive/bDcmPlayer.js';
+
+        import(playerUrl).then(({default: BDcmPlayer}) => {
+            const embeds = document.querySelectorAll('.blive-dcm-embed');
+            embeds.forEach(embed => {
+                const bliveId = embed.getAttribute('blive-id');
+                if (bliveId) {
+                    // Check for test URL first
+                    const testUrl = embed.getAttribute('test-url');
+                    const clearCache = embed.getAttribute('clear-cache');
+                    const clearCacheBool = clearCache === "true" ? true : false;
+                    let useTestAds = false;
+                    if (testUrl && testUrl.length > 0) {
+                        useTestAds = true;
+                    }
+
+                    // Process searchInfo
+                    let searchInfo = testUrl || document.querySelector('link[rel="canonical"]')?.href || window.location.href;
+                    
+                    // Special handling for marketplace and dog-breeds URLs
+                    if (searchInfo.includes('marketplace.akc.org') || searchInfo.includes('dog-breeds')) {
+                        try {
+                            const url = new URL(searchInfo);
+                            // Get the last path segment
+                            const pathSegments = url.pathname.split('/').filter(segment => segment.length > 0);
+                            
+                            if (pathSegments.length > 0) {
+                                const lastSegment = pathSegments[pathSegments.length - 1];
+                                
+                                // If the last segment is exactly "dog-breeds", keep the full URL
+                                if (lastSegment !== "dog-breeds") {
+                                    // Use the last path segment as the search info
+                                    searchInfo = lastSegment;
+                                    console.debug('Using last path segment as searchInfo:', searchInfo);
+                                } else {
+                                    console.debug('Using full URL for dog-breeds page');
+                                }
+                            }
+                        } catch (error) {
+                            console.warn('Failed to parse URL for special handling:', error);
+                        }
+                    }
+
+                    BDcmPlayer.create({
+                        debug: false,
+                        searchInfo: searchInfo,
+                        clearCache: clearCacheBool,
+                        autoplay: false,
+                        container: '.blive-dcm-embed',
+                        useTestAds: useTestAds
+                    }).catch(error => {
+                        console.error('Failed to create BDcmPlayer instance:', error);
+                    });
+                }
+            });
+        }).catch(error => {
+            console.error('Failed to import BDcmPlayer:', error);
+        });
+    } catch (error) {
+        console.error('Failed to initialize BDcmPlayer:', error);
+    }
+})();

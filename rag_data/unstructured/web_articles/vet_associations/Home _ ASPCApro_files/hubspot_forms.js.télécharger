@@ -1,0 +1,127 @@
+function waitForHubSpot(callback, attempts = 10) {
+  if (window.hbspt) {
+    callback();
+  } else if (attempts > 0) {
+    setTimeout(() => waitForHubSpot(callback, attempts - 1), 500);
+  } else {
+    console.error("HubSpot script not loaded after multiple attempts.");
+  }
+}
+
+function initializeHubSpotForms() {
+  const formContainers = document.querySelectorAll("[data-form-id]");
+
+  formContainers.forEach(container => {
+    const formId = container.getAttribute("data-form-id");
+
+    if (formId) {
+      hbspt.forms.create({
+        portalId: "6370293",
+        formId: formId,
+        target: `#${container.id}`,
+        onFormReady: function () {
+          setupFloatingLabels();
+          setupValidationHandling();
+        }
+      });
+    } else {
+      console.error("No formId found for", container);
+    }
+  });
+}
+
+// Handles floating labels for HubSpot form fields
+function setupFloatingLabels() {
+  document.querySelectorAll(".newsletter-form .hs-form-field").forEach(field => {
+    const input = field.querySelector(".hs-input");
+    const label = field.querySelector("label");
+
+    if (input && label) {
+      // Add class when the input is focused
+      input.addEventListener("focus", () => {
+        label.classList.add("float-label");
+      });
+
+      // Remove class when the input loses focus and is empty
+      input.addEventListener("blur", () => {
+        if (!input.value.trim()) {
+          label.classList.remove("float-label");
+        }
+      });
+
+      // If the input already has a value (e.g., after a page reload)
+      if (input.value.trim()) {
+        label.classList.add("float-label");
+      }
+    }
+  });
+
+  // Dynamically add floating label styles
+  const style = document.createElement("style");
+  style.innerHTML = `
+    .newsletter-form .hs-form-field {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .newsletter-form .hs-form-field label {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      transition: all 0.3s ease-in-out;
+      font-size: 16px;
+      color: #aaa;
+      pointer-events: none;
+    }
+    .newsletter-form .hs-form-field input {
+      padding-top: 18px;
+      padding-bottom: 6px;
+    }
+    .newsletter-form .hs-form-field label.float-label {
+      top: 5px;
+      font-size: 12px;
+      color: #333;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// Handles form validation error display
+function setupValidationHandling() {
+  document.querySelectorAll(".newsletter-form .hs-input").forEach(input => {
+    // Remove error state when the user starts typing
+    input.addEventListener("input", function () {
+      this.closest(".hs-form-field").classList.remove("error-shown");
+    });
+
+    // Show error only when the field loses focus and is empty
+    input.addEventListener("blur", function () {
+      if (!this.value.trim()) {
+        this.closest(".hs-form-field").classList.add("error-shown");
+      }
+    });
+  });
+
+  // Dynamically add error message styles
+  const style = document.createElement("style");
+  style.innerHTML = `
+    .newsletter-form ul.no-list.hs-error-msgs.inputs-list {
+      display: none;
+    }
+      
+    .newsletter-form .hs_error_rollup {
+      position: relative;
+      width: 100%;
+      margin: 10px 0;
+      min-height: 50px;
+      max-height: 100px;
+    }
+
+  `;
+  document.head.appendChild(style);
+}
+
+// Execute when the DOM is fully loaded
+document.addEventListener("DOMContentLoaded", function () {
+  waitForHubSpot(initializeHubSpotForms);
+});
